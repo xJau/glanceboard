@@ -40,6 +40,9 @@ chmod +x "$TARGET/glanceboard-dash.sh" 2>/dev/null || true
 EXT="$VOLUME/extensions/glanceboard"
 mkdir -p "$EXT/bin"
 cp "$HERE/extensions/glanceboard/menu.json" "$EXT/menu.json"
+# KUAL builds that predate menu-only extensions need this descriptor,
+# and silently ignore the whole directory without it.
+cp "$HERE/extensions/glanceboard/config.xml" "$EXT/config.xml"
 cp "$HERE/extensions/glanceboard/bin/"*.sh "$EXT/bin/"
 chmod +x "$EXT/bin/"*.sh 2>/dev/null || true
 echo "KUAL extension installed into $EXT"
