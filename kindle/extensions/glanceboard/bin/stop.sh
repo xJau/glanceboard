@@ -1,8 +1,5 @@
 #!/bin/sh
-# Stop the loop and bring the reader back.
-#
-# Only reachable while the framework is still running — that is, after "Un giro
-# adesso", not after "Avvia dashboard". In that case, restart the device.
+# Stop the loop and let the device behave normally again.
 PIDFILE=/mnt/us/glanceboard/state/dash.pid
 
 if [ -f "$PIDFILE" ]; then
@@ -10,5 +7,6 @@ if [ -f "$PIDFILE" ]; then
     rm -f "$PIDFILE"
 fi
 
+lipc-set-prop com.lab126.powerd preventScreenSaver 0 2>/dev/null
 initctl start framework 2>/dev/null
 initctl start powerd 2>/dev/null

@@ -17,16 +17,22 @@
                     "exitmenu": true
                 },
                 {
-                    "name": "Avvia dashboard",
+                    "name": "Avvia ciclo (lettore acceso)",
                     "priority": 3,
                     "action": "/mnt/us/extensions/glanceboard/bin/start.sh",
                     "exitmenu": true
                 },
                 {
-                    "name": "Ferma dashboard",
+                    "name": "Ferma ciclo",
                     "priority": 4,
                     "action": "/mnt/us/extensions/glanceboard/bin/stop.sh",
                     "exitmenu": false
+                },
+                {
+                    "name": "Modalita dedicata (spegne KUAL)",
+                    "priority": 5,
+                    "action": "/mnt/us/extensions/glanceboard/bin/dedicated.sh",
+                    "exitmenu": true
                 }
             ]
         }

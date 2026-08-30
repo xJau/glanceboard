@@ -54,18 +54,25 @@ Eject the Kindle, open KUAL, and you will find a **Glanceboard** menu:
 |---|---|
 | **Un giro adesso (prova)** | One cycle, no suspend, reader left running. Start here. |
 | **Mostra log** | Draws the tail of the log on the panel. The only way to read it without SSH. |
-| **Avvia dashboard** | Stops the reader UI and runs the loop for real. |
-| **Ferma dashboard** | Stops the loop and brings the reader back. |
+| **Avvia ciclo (lettore acceso)** | Runs the loop with the reader still running. Reversible. |
+| **Ferma ciclo** | Stops the loop. |
+| **Modalita dedicata (spegne KUAL)** | Stops the reader UI. One way in — see below. |
 
 *Un giro adesso* is the safe one: it draws the board and leaves everything else
 alone, so a failed attempt costs nothing. If the screen stays blank, the log is
 one entry away — `is not a PNG` usually means the server returned an error page
 instead of an image, which points at the token or the Access policy.
 
-Once that works, *Avvia dashboard* stops the framework and starts the loop.
-**That also stops KUAL**, so *Ferma dashboard* is no longer reachable
-afterwards: to get the reader back, hold the power button for about twenty
-seconds and let the device restart.
+*Avvia ciclo* runs the refresh loop with the reader left alone. It suppresses
+the screensaver, which is the thing that would otherwise paint over the board,
+and the device still suspends between refreshes — a short press of the power
+button wakes it and the reader is there as usual. *Ferma ciclo* undoes it.
+
+*Modalita dedicata* is the end state: it stops the framework, so nothing can
+repaint the panel and the battery lasts longer. It is a one-way door on a device
+without SSH — stopping the framework also stops KUAL, so afterwards the only way
+back to the reader is holding the power button for about twenty seconds. Use it
+once the loop has proven itself, not before.
 
 ## Run it at boot
 

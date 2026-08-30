@@ -1,9 +1,14 @@
 #!/bin/sh
-# Turn the Kindle into the dashboard: stop the reader UI and run the loop.
+# Run the refresh loop with the reader left running.
 #
-# Stopping the framework also stops KUAL, so "Ferma dashboard" is no longer
-# reachable from the menu afterwards. To get the reader back, hold the power
-# button for about twenty seconds and let the device restart.
+# This does NOT stop the framework. An earlier version did, which also stopped
+# KUAL — the only way to reach this device, since it has no SSH — and left the
+# user with a screen that looked frozen and no way back except a hard restart.
+# A menu entry must not be able to remove access to the menu.
+#
+# The screensaver is suppressed instead, which is what would otherwise paint
+# over the board. The device still suspends between refreshes; a short press of
+# the power button wakes it, and the reader is there as usual.
 LOG=/mnt/us/glanceboard/glanceboard.log
 PIDFILE=/mnt/us/glanceboard/state/dash.pid
 
@@ -14,13 +19,12 @@ if [ -f "$PIDFILE" ]; then
     rm -f "$PIDFILE"
 fi
 
-eips -c
-eips 0 2 "Glanceboard: avvio dashboard..."
-eips 0 4 "Per tornare al lettore: tieni premuto"
-eips 0 5 "il tasto di accensione ~20 secondi."
-
-initctl stop framework 2>/dev/null
-initctl stop powerd 2>/dev/null
+lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
 
 nohup sh /mnt/us/glanceboard/glanceboard-dash.sh >> "$LOG" 2>&1 &
 echo $! > "$PIDFILE"
+
+eips -c
+eips 0 2 "Glanceboard: ciclo avviato."
+eips 0 4 "Il lettore resta acceso: puoi sempre"
+eips 0 5 "tornare in KUAL e premere Ferma."
