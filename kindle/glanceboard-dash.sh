@@ -57,7 +57,12 @@ mkdir -p "$STATE_DIR" 2>/dev/null
 
 log() {
     printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$*" >> "$LOG_FILE" 2>/dev/null
-    printf '%s\n' "$*"
+    # Only echo when someone is watching. Under the KUAL launcher stdout is
+    # redirected to this same file, and every line would land in it twice —
+    # halving what fits on the "Mostra log" screen, which is the only way to
+    # read it on a device with no shell.
+    [ -t 1 ] && printf '%s\n' "$*"
+    return 0
 }
 
 rotate_log() {
@@ -159,8 +164,11 @@ is_png() {
 }
 
 draw() {
-    count=0
-    [ -f "$COUNTER_FILE" ] && count=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
+    count=$(cat "$COUNTER_FILE" 2>/dev/null)
+    # A truncated or corrupt counter must not break the arithmetic below.
+    case "$count" in
+        ''|*[!0-9]*) count=0 ;;
+    esac
     count=$((count + 1))
 
     if [ "$count" -ge "$FULL_REFRESH_EVERY" ]; then
@@ -230,7 +238,12 @@ cycle() {
         # KUAL, the screensaver or a previous run may have painted over it.
         # The hash tracks the board, not the screen.
         log "unchanged ($remote_hash), but redrawing: panel state unknown"
-        draw && FORCE_DRAW=0
+        if draw; then
+            FORCE_DRAW=0
+        else
+            wifi_off
+            return 1
+        fi
     else
         tmp="$IMAGE_FILE.part"
         if ! http_get "/display" "$tmp"; then

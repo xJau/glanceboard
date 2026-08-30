@@ -95,6 +95,22 @@ Then `initctl start glanceboard`. On firmware where `/etc` is read-only,
 remount it first with `mntroot rw` and put it back with `mntroot ro`
 afterwards.
 
+## Testing the device script without a device
+
+```bash
+kindle/selftest.sh
+```
+
+Runs `glanceboard-dash.sh` for real against a server it starts itself, with
+`eips` and `lipc-*` replaced by recorders. It covers the cases that actually
+went wrong: a first draw on an empty device, an unchanged board that must be
+redrawn anyway because the panel's state is unknown, a wrong token, an Access
+login page arriving where a PNG was expected, an unreachable server, a panel
+that refuses to draw, and a log that must not contain every line twice.
+
+Every bug that reached the panel lived in this script, and none of them would
+have been caught by reading it.
+
 ## Battery
 
 The loop suspends to RAM between refreshes (`/sys/class/rtc/rtc1/wakealarm`
