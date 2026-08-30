@@ -251,25 +251,53 @@ cycle() {
 
     wifi_off
 
-    # Sleep for the server's own idea of the interval, plus a grace period so
-    # the next board has been rendered by the time the device asks for it.
+    # Report the server's own idea of the interval, plus a grace period so the
+    # next board has been rendered by the time the device asks for it. The
+    # caller decides whether to act on it: a single run from KUAL must not put
+    # the device to sleep.
     if [ -n "$now_epoch" ] && [ -n "$next_epoch" ] && [ "$next_epoch" -gt "$now_epoch" ]; then
-        suspend_for $((next_epoch - now_epoch + WAKE_GRACE))
+        NEXT_SLEEP=$((next_epoch - now_epoch + WAKE_GRACE))
     else
         log "WARN: no usable schedule in the response; falling back to MIN_SLEEP"
-        suspend_for "$MIN_SLEEP"
+        NEXT_SLEEP="$MIN_SLEEP"
     fi
     return 0
 }
 
 # ─── Main ────────────────────────────────────────────────────────
 
+ONCE=0
+for arg in "$@"; do
+    case "$arg" in
+        --once) ONCE=1 ;;
+        *) echo "unknown argument: $arg" >&2; exit 2 ;;
+    esac
+done
+
 die_if_unconfigured
+NEXT_SLEEP="$MIN_SLEEP"
+
+if [ "$ONCE" = "1" ]; then
+    # One cycle, no suspend: this is what a KUAL menu entry runs, and what you
+    # want in front of you the first time, when the answer to "did it work?"
+    # has to arrive before the device goes back to sleep.
+    log "glanceboard-dash single run against $BASE_URL"
+    rotate_log
+    if cycle; then
+        log "ok — would sleep ${NEXT_SLEEP}s"
+        exit 0
+    fi
+    log "cycle failed"
+    exit 1
+fi
+
 log "glanceboard-dash starting against $BASE_URL"
 
 while true; do
     rotate_log
-    if ! cycle; then
+    if cycle; then
+        suspend_for "$NEXT_SLEEP"
+    else
         wifi_off
         log "cycle failed; retrying in ${RETRY_SLEEP}s"
         suspend_for "$RETRY_SLEEP"

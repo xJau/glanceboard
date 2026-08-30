@@ -36,6 +36,14 @@ mkdir -p "$TARGET/state"
 cp "$HERE/glanceboard-dash.sh" "$TARGET/glanceboard-dash.sh"
 chmod +x "$TARGET/glanceboard-dash.sh" 2>/dev/null || true
 
+# KUAL extension, so the device can be driven from its own menu without SSH.
+EXT="$VOLUME/extensions/glanceboard"
+mkdir -p "$EXT/bin"
+cp "$HERE/extensions/glanceboard/menu.json" "$EXT/menu.json"
+cp "$HERE/extensions/glanceboard/bin/"*.sh "$EXT/bin/"
+chmod +x "$EXT/bin/"*.sh 2>/dev/null || true
+echo "KUAL extension installed into $EXT"
+
 if [ -f "$TARGET/glanceboard.conf" ]; then
     echo "Keeping the existing $TARGET/glanceboard.conf"
 else
@@ -47,7 +55,7 @@ echo
 echo "Installed into $TARGET"
 echo "On the device this path is /mnt/us/glanceboard"
 echo
-echo "Next, on the Kindle itself (over SSH or a KUAL shell):"
-echo "  1. edit /mnt/us/glanceboard/glanceboard.conf — BASE_URL and DISPLAY_TOKEN"
-echo "  2. sh /mnt/us/glanceboard/glanceboard-dash.sh   # watch one cycle"
-echo "  3. see kindle/README.md for starting it at boot"
+echo "Next, on the Kindle itself — no SSH needed:"
+echo "  1. make sure glanceboard.conf has BASE_URL, DISPLAY_TOKEN and the CF_ACCESS_* pair"
+echo "  2. eject the Kindle, open KUAL, and pick Glanceboard > Un giro adesso"
+echo "  3. if nothing appears, Glanceboard > Mostra log"

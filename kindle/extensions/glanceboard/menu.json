@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "name": "Glanceboard",
+      "priority": 1,
+      "items": [
+        { "name": "Un giro adesso (prova)", "priority": 1, "action": "bin/once.sh", "exitmenu": true },
+        { "name": "Mostra log", "priority": 2, "action": "bin/showlog.sh", "exitmenu": true },
+        { "name": "Avvia dashboard", "priority": 3, "action": "bin/start.sh", "exitmenu": true },
+        { "name": "Ferma dashboard", "priority": 4, "action": "bin/stop.sh", "exitmenu": false }
+      ]
+    }
+  ]
+}
