@@ -14,11 +14,12 @@
 
 """Geometry of the board, expressed as fractions of the canvas.
 
-Every dimension derives from width and height, so the same layout renders on a
-1072x1448 Paperwhite 3/4 and a 1236x1648 Paperwhite 5/6 without a second set of
-numbers. The illustration band is reserved here in phase 1 even though nothing
-draws into it yet: when the AI image arrives it lands in an area the rest of the
-layout has already accounted for, instead of forcing a re-layout.
+Landscape composition, following the shape of the original Glanceboard: a ribbon
+across the top, the day's list on the left, the weather down in the corner, and
+an illustration panel on the right that phase 2 fills.
+
+Every dimension derives from width and height, so the same layout renders at
+1448×1072 and at any other landscape panel without a second set of numbers.
 """
 from __future__ import annotations
 
@@ -40,71 +41,128 @@ class Rect:
     def height(self) -> int:
         return self.bottom - self.top
 
+    @property
+    def centre_x(self) -> int:
+        return (self.left + self.right) // 2
+
     def as_tuple(self) -> tuple[int, int, int, int]:
         return (self.left, self.top, self.right, self.bottom)
+
+    def inset(self, amount: int) -> "Rect":
+        return Rect(self.left + amount, self.top + amount,
+                    self.right - amount, self.bottom - amount)
 
 
 class Layout:
     """Resolution-independent metrics for one canvas size."""
 
-    def __init__(self, width: int, height: int, art_fraction: float = 0.30):
+    def __init__(self, width: int, height: int, art_fraction: float = 0.34):
         if width < 200 or height < 200:
             raise ValueError(f"Canvas too small to lay out: {width}x{height}")
         if not 0.0 <= art_fraction <= 0.6:
             raise ValueError(f"art_fraction must be between 0 and 0.6, got {art_fraction}")
+
         self.width = width
         self.height = height
         self.art_fraction = art_fraction
 
-        self.margin = round(0.055 * width)
-        content_left = self.margin
-        content_right = width - self.margin
+        short_side = min(width, height)
 
-        header_height = round(0.115 * height)
-        footer_height = round(0.030 * height)
-        art_height = round(art_fraction * height)
+        # The frame: two lines just inside the edge, like a mount board.
+        self.frame_outer = round(0.022 * short_side)
+        self.frame_gap = round(0.011 * short_side)
+        self.frame_stroke = max(2, round(0.004 * short_side))
+        self.corner_radius = round(0.030 * short_side)
 
-        self.header = Rect(content_left, self.margin, content_right, self.margin + header_height)
-        self.rule_y = self.header.bottom + round(0.010 * height)
-        self.rule_thickness = max(2, round(0.0035 * width))
-
-        self.footer = Rect(
-            content_left,
-            height - self.margin - footer_height,
-            content_right,
-            height - self.margin,
+        padding = round(0.042 * short_side)
+        self.content = Rect(
+            self.frame_outer + self.frame_gap + padding,
+            self.frame_outer + self.frame_gap + padding,
+            width - self.frame_outer - self.frame_gap - padding,
+            height - self.frame_outer - self.frame_gap - padding,
         )
-        self.art = Rect(
-            content_left,
-            self.footer.top - round(0.012 * height) - art_height,
-            content_right,
-            self.footer.top - round(0.012 * height),
+
+        # Ribbon across the top, centred.
+        banner_height = round(0.120 * height)
+        banner_width = round(0.58 * width)
+        self.banner = Rect(
+            self.content.centre_x - banner_width // 2,
+            self.content.top,
+            self.content.centre_x + banner_width // 2,
+            self.content.top + banner_height,
         )
+        self.banner_notch = round(banner_height * 0.30)
+
+        gutter = round(0.030 * short_side)
+        columns_top = self.banner.bottom + round(0.040 * height)
+        left_width = round((1.0 - art_fraction) * self.content.width) - gutter
+
+        # The agenda takes the whole left column. In landscape the canvas is
+        # short, and the list is the thing that needs the height.
         self.agenda = Rect(
-            content_left,
-            self.rule_y + self.rule_thickness + round(0.026 * height),
-            content_right,
-            self.art.top - round(0.018 * height),
+            self.content.left,
+            columns_top,
+            self.content.left + left_width,
+            self.content.bottom,
         )
 
-        # Agenda row metrics
-        self.time_column = round(0.21 * self.agenda.width)
-        self.row_padding = round(0.012 * height)
-        self.separator_thickness = max(1, round(0.0012 * height))
-        self.line_spacing = round(0.006 * height)
+        # Right column: the illustration panel above, weather in the corner
+        # below it — the position it holds in the original.
+        weather_height = round(0.24 * height)
+        self.weather = Rect(
+            self.agenda.right + gutter,
+            self.content.bottom - weather_height,
+            self.content.right,
+            self.content.bottom,
+        )
 
-        # Type scale, driven by width so line lengths stay constant in characters
-        self.size_weekday = round(0.078 * width)
-        self.size_date = round(0.038 * width)
-        self.size_temp = round(0.062 * width)
-        self.size_condition = round(0.028 * width)
-        self.size_time = round(0.038 * width)
-        self.size_time_end = round(0.026 * width)
-        self.size_title = round(0.040 * width)
-        self.size_note = round(0.030 * width)
-        self.size_footer = round(0.021 * width)
+        # Nothing is drawn in the art panel in phase 1; it exists so the picture,
+        # when it arrives, lands in space the rest of the layout has accounted for.
+        self.art = Rect(
+            self.agenda.right + gutter,
+            columns_top,
+            self.content.right,
+            self.weather.top - gutter,
+        )
+
+        # The timestamp is a caption in the margin below the cards, not a card.
+        self.footer = Rect(
+            self.content.left,
+            self.content.bottom,
+            self.content.right,
+            height - self.frame_outer - self.frame_gap,
+        )
+
+        # Cards
+        self.plate_radius = round(0.026 * short_side)
+        self.plate_padding = round(0.030 * short_side)
+        self.plate_stroke = max(2, round(0.0035 * short_side))
+
+        # Agenda rows
+        self.bullet_radius = max(3, round(0.007 * short_side))
+        self.bullet_gap = round(0.022 * short_side)
+        self.row_padding = round(0.013 * short_side)
+        self.line_spacing = round(0.008 * short_side)
+
+        # Type scale, driven by the short side so the proportions hold across
+        # panel sizes.
+        self.size_banner = round(0.070 * short_side)
+        self.size_heading = round(0.032 * short_side)
+        self.size_time = round(0.040 * short_side)
+        self.size_title = round(0.040 * short_side)
+        self.size_note = round(0.034 * short_side)
+        self.size_temp = round(0.082 * short_side)
+        self.size_condition = round(0.034 * short_side)
+        self.size_range = round(0.030 * short_side)
+        self.size_footer = round(0.026 * short_side)
+
+        self.icon_size = round(0.130 * short_side)
 
     @property
-    def title_column(self) -> int:
-        """Width available to an event title, after the time column."""
-        return self.agenda.width - self.time_column
+    def agenda_text(self) -> Rect:
+        """The area inside the agenda card, after its padding."""
+        return self.agenda.inset(self.plate_padding)
+
+    @property
+    def row_text_width(self) -> int:
+        return self.agenda_text.width - self.bullet_radius * 2 - self.bullet_gap

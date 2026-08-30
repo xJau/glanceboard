@@ -28,8 +28,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_WIDTH = 1072   # Kindle Paperwhite 4 (10th gen, 6"). PW5/PW6: 1236x1648.
-DEFAULT_HEIGHT = 1448
+# Landscape canvas. The Paperwhite 4 panel is 1072x1448 portrait, so the board
+# is drawn at 1448x1072 and rotated on the way out — see GB_ROTATE.
+DEFAULT_WIDTH = 1448
+DEFAULT_HEIGHT = 1072
 DEFAULT_TIMEZONE = "Europe/Rome"
 DEFAULT_SLOTS = (5, 12, 18)
 
@@ -86,6 +88,25 @@ def _env_fraction(name: str, default: float) -> float:
     return value
 
 
+def _env_rotation(name: str, default: int) -> int:
+    """Quarter turns applied to the finished PNG.
+
+    The board is composed in landscape but the panel is physically portrait,
+    so the image is rotated once, here, rather than every consumer having to
+    know which way up the device is lying.
+    """
+    raw = _env(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{name} must be 0, 90, 180 or 270, got {raw!r}") from exc
+    if value not in (0, 90, 180, 270):
+        raise ConfigError(f"{name} must be 0, 90, 180 or 270, got {value}")
+    return value
+
+
 def _env_bool(name: str, default: bool = False) -> bool:
     raw = _env(name)
     if raw is None:
@@ -129,6 +150,7 @@ class Settings:
     request_timeout: int
     max_events: int
     art_fraction: float
+    rotate: int
     allow_no_token: bool
     tzinfo: ZoneInfo = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
 
@@ -171,7 +193,8 @@ class Settings:
             port=_env_int("GB_PORT", 8000),
             request_timeout=_env_int("GB_REQUEST_TIMEOUT", 20),
             max_events=_env_int("GB_MAX_EVENTS", 12),
-            art_fraction=_env_fraction("GB_ART_FRACTION", 0.30),
+            art_fraction=_env_fraction("GB_ART_FRACTION", 0.34),
+            rotate=_env_rotation("GB_ROTATE", 90),
             allow_no_token=_env_bool("GB_ALLOW_NO_TOKEN", False),
             tzinfo=tz,
         )

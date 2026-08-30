@@ -4,6 +4,11 @@ A jailbroken Paperwhite wakes, asks the server whether the board changed,
 downloads it only if it did, draws it with `eips`, and suspends to RAM until
 the next slot.
 
+The board is landscape, so the device is meant to stand on its side. The server
+rotates the PNG before serving it, which is what `GB_ROTATE` is for: if the
+board comes out upside down for the way you have propped the Kindle, set it to
+`270` instead of `90` and nothing on the device has to change.
+
 Nothing here reformats the device or touches the jailbreak. Everything lives in
 `/mnt/us/glanceboard/`, and uninstalling means deleting that folder.
 

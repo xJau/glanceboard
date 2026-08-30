@@ -79,3 +79,19 @@ def test_temperature_unit_is_validated(monkeypatch):
     monkeypatch.setenv("GB_TEMP_UNIT", "kelvin")
     with pytest.raises(ConfigError):
         Settings.from_env()
+
+
+def test_rotation_defaults_to_a_quarter_turn():
+    """The canvas is landscape; the panel is not."""
+    assert Settings.from_env().rotate == 90
+
+
+def test_an_impossible_rotation_is_rejected(monkeypatch):
+    monkeypatch.setenv("GB_ROTATE", "45")
+    with pytest.raises(ConfigError):
+        Settings.from_env()
+
+
+def test_rotation_can_be_switched_off(monkeypatch):
+    monkeypatch.setenv("GB_ROTATE", "0")
+    assert Settings.from_env().rotate == 0

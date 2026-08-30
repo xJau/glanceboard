@@ -14,9 +14,14 @@
 
 """Typography, tones and Italian date vocabulary.
 
-Fonts are vendored in the repo rather than looked up on the system: a Mac and a
-Debian container do not carry the same faces, and a layout you iterate on
-locally has to be the layout that reaches the device.
+The typeface is Nunito — rounded terminals, generous counters — chosen to sit
+next to the storybook illustration phase 2 will add rather than against it. It is
+vendored in the repo rather than looked up on the system: a Mac and a Debian
+container do not carry the same faces, and a layout you iterate on locally has to
+be the layout that reaches the device.
+
+Every tone is a multiple of 17, so the palette already lives on the panel's
+16-level grid and quantization never shifts a fill.
 """
 from __future__ import annotations
 
@@ -26,19 +31,22 @@ from pathlib import Path
 
 from PIL import ImageFont
 
-FONT_FILE = "Inter[opsz,wght].ttf"
+FONT_FILE = "Nunito[wght].ttf"
 
 # Weight axis values used by the layout.
 REGULAR = 400
 MEDIUM = 500
 SEMIBOLD = 600
 BOLD = 700
+HEAVY = 800
 
-# Tones, all on the 16-level grid (multiples of 17).
-PAPER = 255
-HAIRLINE = 204
-MUTED = 136
-INK_SOFT = 85
+# Tones. The page is a shade off white and the cards are white, which gives the
+# layout a little depth without a single drop shadow — e-ink has no use for one.
+PAPER = 238
+PLATE = 255
+HAIRLINE = 187
+MUTED = 119
+INK_SOFT = 68
 INK = 0
 
 
@@ -60,11 +68,8 @@ class Fonts:
     @lru_cache(maxsize=64)
     def get(self, size: int, weight: int = REGULAR) -> ImageFont.FreeTypeFont:
         font = ImageFont.truetype(str(self.path), size)
-        # Optical size axis runs 14–32; track the point size within that range
-        # so small text keeps its spacing and large text tightens up.
-        optical = max(14, min(32, size))
         try:
-            font.set_variation_by_axes([float(optical), float(weight)])
+            font.set_variation_by_axes([float(weight)])
         except OSError:
             # FreeType without variable-font support: fall back to the default
             # instance rather than failing the whole render.
@@ -107,6 +112,11 @@ def month_name(day: date) -> str:
     return MONTHS[day.month - 1]
 
 
+def banner_date(day: date) -> str:
+    """'Martedì 1 settembre' — what the ribbon across the top says."""
+    return f"{weekday_name(day).capitalize()} {day.day} {month_name(day)}"
+
+
 def long_date(day: date) -> str:
-    """'30 agosto 2026'."""
+    """'1 settembre 2026'."""
     return f"{day.day} {month_name(day)} {day.year}"

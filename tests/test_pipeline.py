@@ -123,3 +123,25 @@ def test_state_is_written_as_readable_json(settings, sample_ics, monkeypatch):
 
 def test_missing_state_reads_as_empty(settings):
     assert load_state(settings) == {}
+
+
+def test_the_board_is_rotated_for_the_portrait_panel(settings, sample_ics):
+    """Composed landscape, delivered in the orientation the panel expects."""
+    board = build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics)
+    path = render_to_file(board, settings)
+
+    from PIL import Image
+
+    with Image.open(path) as image:
+        assert settings.rotate == 90
+        assert image.size == (settings.height, settings.width)
+
+
+def test_rotation_can_be_overridden_for_previewing(settings, sample_ics):
+    board = build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics)
+    path = render_to_file(board, settings, rotate=0)
+
+    from PIL import Image
+
+    with Image.open(path) as image:
+        assert image.size == (settings.width, settings.height)

@@ -107,6 +107,7 @@ def render_to_file(
     settings: Settings,
     path: Path | None = None,
     debug_regions: bool = False,
+    rotate: int | None = None,
 ) -> Path:
     """Render and write the PNG atomically, so a reader never sees half a file."""
     image = render_board(
@@ -118,6 +119,10 @@ def render_to_file(
         art_fraction=settings.art_fraction,
         debug_regions=debug_regions,
     )
+    turns = settings.rotate if rotate is None else rotate
+    if turns:
+        # Composed in landscape, delivered in the panel's own orientation.
+        image = image.rotate(turns, expand=True)
     target = Path(path) if path else settings.image_path
     target.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write(target, lambda handle: image.save(handle, format="PNG", optimize=True))

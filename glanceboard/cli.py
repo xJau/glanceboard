@@ -53,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="use the bundled sample calendar and weather (no network, no config)")
     render.add_argument("--debug-regions", action="store_true",
                         help="outline the layout regions")
+    render.add_argument("--upright", action="store_true",
+                        help="skip GB_ROTATE, so the landscape board is easy to look at")
     render.add_argument("--open", dest="open_after", action="store_true",
                         help="open the PNG in the system viewer when done")
 
@@ -115,7 +117,8 @@ def _render(settings: Settings, args) -> int:
         settings, day=day, ical_bytes=ical_bytes, weather_payload=weather_payload
     )
     target = render_to_file(
-        board, settings, path=args.out, debug_regions=args.debug_regions
+        board, settings, path=args.out, debug_regions=args.debug_regions,
+        rotate=0 if args.upright else None,
     )
 
     print(

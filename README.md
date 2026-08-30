@@ -29,7 +29,7 @@ replaces everything else.
 
 | | Upstream | Here |
 |---|---|---|
-| Display | Waveshare 7.3", 800×480, 6 colours, landscape | Kindle Paperwhite, portrait, 16 grays |
+| Display | Waveshare 7.3", 800×480, 6 colours | Kindle Paperwhite, 16 grays, landscape board on a portrait panel |
 | Layout | Drawn by an image model from a prompt | Drawn by PIL, deterministically |
 | Config | `data/config.json`, editable over HTTP | Environment variables only |
 | `/api/config` | Served the API key unauthenticated | Does not exist |
@@ -41,31 +41,41 @@ Phase 1 — what is here — generates no images and calls no models.
 
 ## The layout
 
+Landscape, following the shape of the original: a ribbon across the top, the
+day's list on the left, the weather in a corner, and space kept for a picture.
+
 ```
-┌────────────────────────────────────────┐
-│ Martedì                      18° / 28° │  header: day, date, min/max
-│ 1 settembre 2026              Coperto  │
-├────────────────────────────────────────┤
-│ tutto il giorno   Studio chiuso        │  agenda: time on the left,
-│ 09:00             Consulenza Rossi     │  title on the right
-│ 10:00                                  │
-│ 11:30             Call Bianchi SRL     │
-│ …                                      │
-├────────────────────────────────────────┤
-│                                        │
-│         (illustration band)            │  reserved, empty in phase 1
-│                                        │
-├────────────────────────────────────────┤
-│ aggiornato 05:00                       │
-└────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│              ╱‾‾‾ Martedì 1 settembre ‾‾‾╲               │  ribbon: the date
+│  ┌────────────────────────────┐  ┌────────────────────┐  │
+│  │ IN PROGRAMMA OGGI          │  │                    │  │
+│  │ • tutto il giorno — …      │  │   illustration     │  │  reserved panel,
+│  │ • 09:00 — Consulenza Rossi │  │      panel         │  │  empty in phase 1
+│  │ • 11:30 — Call Bianchi SRL │  │                    │  │
+│  │ • 14:00 — Sopralluogo …    │  ├────────────────────┤  │
+│  │ • 16:00 — Riunione team    │  │  ☁  28°            │  │  weather
+│  │ • 18:30 — Palestra         │  │     Coperto        │  │
+│  └────────────────────────────┘  └────────────────────┘  │
+│                                    aggiornato alle 05:00 │
+└──────────────────────────────────────────────────────────┘
 ```
 
-The illustration band is reserved now even though nothing draws into it. When
-phase 2 adds an image model, it fills that band and nothing else: the text stays
-deterministic, so a model can never restate an appointment time incorrectly, and
-a failed generation costs the board its picture rather than its content. The
-deterministic renderer is not a separate fallback path that rots unused — it is
-the same path that runs every day.
+The board is composed at 1448×1072 and rotated a quarter turn on the way out,
+because the Paperwhite panel is physically portrait. `GB_ROTATE` decides which
+way; `--upright` skips it while you are looking at the PNG on a desk.
+
+The illustration panel is reserved now even though nothing draws into it. When
+phase 2 adds an image model, it fills that panel and nothing else: the text
+stays deterministic, so a model can never restate an appointment time
+incorrectly, and a failed generation costs the board its picture rather than its
+content. The deterministic renderer is not a separate fallback path that rots
+unused — it is the same path that runs every day.
+
+Rows compact before anything is dropped: first the spacing, then the type size,
+and only then does a day too full to fit end with *e altri 2 appuntamenti*.
+
+Set `GB_ART_FRACTION=0` to give the whole board to the agenda until phase 2
+arrives.
 
 ## Local development
 
@@ -83,7 +93,8 @@ Render the bundled sample without any configuration, network or server:
 That is the loop for iterating on the layout. Useful flags:
 
 ```bash
---size 1236x1648     # a Paperwhite 5/6 panel
+--size 1648x1236     # a Paperwhite 5/6 panel
+--upright            # skip GB_ROTATE, easier to look at on screen
 --debug-regions      # outline the header, agenda, illustration and footer
 --date 2026-09-01    # a specific day
 --ics path.ics       # a real feed saved to a file
@@ -165,8 +176,9 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_TIMEZONE` | `Europe/Rome` | Used for the day boundary and the slots. |
 | `GB_LAT`, `GB_LON` | — | Weather location. Omit to skip weather. |
 | `GB_TEMP_UNIT` | `celsius` | `celsius` or `fahrenheit`. |
-| `GB_WIDTH`, `GB_HEIGHT` | `1072`, `1448` | Panel size. PW5/PW6: `1236`, `1648`. |
-| `GB_ART_FRACTION` | `0.30` | Share of the height reserved for the illustration. |
+| `GB_WIDTH`, `GB_HEIGHT` | `1448`, `1072` | Landscape canvas. PW5/PW6: `1648`, `1236`. |
+| `GB_ROTATE` | `90` | Quarter turns applied to the PNG. `0`, `90`, `180`, `270`. |
+| `GB_ART_FRACTION` | `0.34` | Share of the width reserved for the illustration. |
 | `GB_MAX_EVENTS` | `12` | Upper bound before the `+N altri` note. |
 | `GB_SLOTS` | `5,12,18` | Hours at which the board is regenerated. |
 | `GB_DISPLAY_TOKEN` | — | Required to serve. At least 24 characters. |
@@ -203,5 +215,5 @@ See [kindle/README.md](kindle/README.md).
 ## Licence
 
 Apache 2.0, inherited from the upstream project. The bundled
-[Inter](https://github.com/rsms/inter) typeface is under the SIL Open Font
-License; see `assets/fonts/OFL.txt`.
+[Nunito](https://github.com/googlefonts/nunito) typeface is under the SIL Open
+Font License; see `assets/fonts/OFL.txt`.
