@@ -46,6 +46,8 @@ FULL_REFRESH_EVERY=6    # full panel flashes to clear e-ink ghosting
 MANAGE_WIFI=1           # turn the radio off between refreshes
 FAILS_BEFORE_NOTICE=3   # consecutive failures before the panel says so
 DEDICATED="${DEDICATED:-0}"  # 1: stop the reader UI, but only once a board is up
+UI_STOP_TIMEOUT=25      # seconds to wait for the reader UI to actually exit
+UI_SETTLE=4             # seconds to let the panel settle afterwards
 # Env-overridable: dedicated mode passes FRONT_LIGHT=0, and the conf file,
 # sourced below, still has the last word.
 FRONT_LIGHT="${FRONT_LIGHT:--1}"   # 0 turns the front light off; -1 leaves it alone
@@ -171,6 +173,24 @@ set_front_light() {
     return 0
 }
 
+wait_for_ui_to_stop() {
+    # The framework does not die at once: on the way out it repaints the status
+    # bar, then the home screen, then a blank home — several seconds of it. A
+    # redraw issued in the middle of that gets partly painted over, which is how
+    # a board ended up with a white band where the status bar had been.
+    #
+    # Wait for its process to actually be gone, then let the panel settle.
+    waited=0
+    while [ "$waited" -lt "$UI_STOP_TIMEOUT" ]; do
+        ps 2>/dev/null | grep -v grep | grep -q "cvm" || break
+        sleep 1
+        waited=$((waited + 1))
+    done
+    log "reader UI gone after ${waited}s"
+    sleep "$UI_SETTLE"
+    return 0
+}
+
 enter_dedicated_mode() {
     # Stop the reader UI — but only from here, and only after a board is on the
     # panel.
@@ -196,11 +216,18 @@ enter_dedicated_mode() {
     sleep 1
     initctl stop powerd 2>/dev/null
     DEDICATED=done
-    sleep 2
+    wait_for_ui_to_stop
 
     # The framework clears the panel on its way out. Drawing before stopping it
     # therefore left the board on screen for a second and a white page for the
     # next six hours: the last thing to touch the panel has to be us.
+    #
+    # Twice, a few seconds apart. The first draw is the one that matters; the
+    # second costs four seconds and covers any last repaint that arrives after
+    # the process is already gone.
+    FORCE_DRAW=1
+    draw
+    sleep "$UI_SETTLE"
     FORCE_DRAW=1
     draw
     FORCE_DRAW=0

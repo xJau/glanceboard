@@ -75,8 +75,12 @@ removing their cause: the framework stops, so nothing repaints the panel, the
 front light goes off — an e-ink board does not need one — and the battery lasts
 considerably longer.
 
-The board is drawn again after the framework stops — it clears the panel on its
-way out, so drawing only before it goes left a white page until the next slot.
+The board is drawn again after the framework stops, and the loop waits for the
+framework's process to actually be gone first. It does not exit at once: on the
+way out it repaints the status bar, then the home screen, then a blank one, over
+several seconds. A redraw issued in the middle of that came back with a white
+band where the status bar had been. The board is then drawn twice, four seconds
+apart, so a late repaint cannot have the last word.
 
 The radio switch belongs to the framework too (`com.lab126.cmd`), so once it is
 gone the loop stops trying to turn the radio off between refreshes and leaves it

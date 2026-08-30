@@ -201,6 +201,8 @@ check "dedicata: ridisegna dopo aver fermato il framework" \
         -lt "$(grep -n 'eips -g' "$WORK/calls.log" | tail -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
 check "dedicata: l'ultima cosa disegnata e' la board" \
     "$(tail -1 "$WORK/calls.log" | grep -c 'eips -g')" "1"
+check "dedicata: ridisegna due volte, per coprire l'ultimo ripasso" \
+    "$([ "$(awk '/stop framework/{f=1} f&&/eips -g/{n++} END{print n+0}' "$WORK/calls.log")" -ge 2 ] && echo si || echo no)" "si"
 
 # A cycle that fails must leave the reader alone: losing the interface and
 # getting nothing back is the worst of both.
