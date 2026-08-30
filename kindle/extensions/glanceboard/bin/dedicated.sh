@@ -1,13 +1,18 @@
 #!/bin/sh
-# Dedicated mode: stop the reader UI so nothing can repaint over the board.
+# Dedicated mode: the board and nothing else.
 #
-# One way in: stopping the framework stops KUAL too, so afterwards this device
-# is a picture frame until you restart it. Hold the power button for about
-# twenty seconds to get the reader back.
+# This script does NOT stop the reader UI. It starts the loop and gets out of
+# the way; the loop stops the framework itself, once it has a board on the
+# panel.
 #
-# Use this once the loop has proven itself from "Avvia ciclo". It is the better
-# end state — nothing repaints the panel, and the battery lasts longer — but it
-# is not where to start.
+# Doing it here was wrong twice over. Stopping the framework kills KUAL, and
+# with it this very script — so the loop was never started and the device was
+# left blank, with nothing running and no way back in. And it happened before
+# the first fetch, so a failure at that moment took away the reader and gave
+# nothing in return.
+#
+# To get the reader back afterwards, hold the power button for about twenty
+# seconds. Nothing here starts at boot, so a restart always lands in the reader.
 LOG=/mnt/us/glanceboard/glanceboard.log
 PIDFILE=/mnt/us/glanceboard/state/dash.pid
 
@@ -18,26 +23,14 @@ if [ -f "$PIDFILE" ]; then
     rm -f "$PIDFILE"
 fi
 
-eips -c
-eips 0 2 "Glanceboard: modalita' dedicata."
-eips 0 4 "Il lettore e KUAL vengono fermati."
-eips 0 6 "Per tornare al lettore: tieni premuto"
-eips 0 7 "il tasto di accensione ~20 secondi."
-sleep 5
+eips 0 2 "Glanceboard: modalita' dedicata" 2>/dev/null
+eips 0 3 "Attendo la board, poi fermo il lettore." 2>/dev/null
 
-initctl stop framework 2>/dev/null
-initctl stop powerd 2>/dev/null
-
-# The reader's last paint stays on the panel after it stops — e-ink holds the
-# image, and a partial update leaves the dark parts showing through. Flush it
-# before the loop draws over it.
-sleep 2
-eips -c 2>/dev/null
-eips -c 2>/dev/null
-
-# No reader underneath means no airplane icon, no touch repainting the board,
-# and no power manager dimming it — the three things that make "reader running"
-# mode a compromise. The front light goes off too: an e-ink board does not need
-# one, and with powerd stopped nothing else would ever turn it off.
-FRONT_LIGHT=0 nohup sh /mnt/us/glanceboard/glanceboard-dash.sh >> "$LOG" 2>&1 &
+# setsid detaches from KUAL's session, so stopping the framework later cannot
+# take the loop down with it. nohup alone does not survive that.
+if command -v setsid >/dev/null 2>&1; then
+    setsid sh /mnt/us/glanceboard/glanceboard-dash.sh --dedicated >> "$LOG" 2>&1 &
+else
+    nohup sh /mnt/us/glanceboard/glanceboard-dash.sh --dedicated >> "$LOG" 2>&1 &
+fi
 echo $! > "$PIDFILE"

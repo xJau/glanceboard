@@ -36,8 +36,14 @@ mkdir -p "$WORK/bin" "$WORK/state" "$WORK/server"
 cat > "$WORK/bin/eips" <<'EOF'
 #!/bin/sh
 echo "eips $*" >> "$KT/eips.log"
+echo "eips $*" >> "$KT/calls.log"
 [ -f "$KT/eips_should_fail" ] && exit 1
 exit 0
+EOF
+cat > "$WORK/bin/initctl" <<'EOF'
+#!/bin/sh
+echo "initctl $*" >> "$KT/initctl.log"
+echo "initctl $*" >> "$KT/calls.log"
 EOF
 cat > "$WORK/bin/lipc-set-prop" <<'EOF'
 #!/bin/sh
@@ -172,7 +178,21 @@ echo "spazzatura" > "$WORK/state/refresh_count"
 run "$WORK/conf" --once
 check "contatore corrotto: il ciclo regge" "$?" "0"
 
-# 9 — after repeated failures the panel must say so, not keep yesterday's board
+# 9 — dedicated mode must not take the reader away before there is a board
+rm -f "$WORK/initctl.log" "$WORK/calls.log" "$WORK/eips.log"
+run "$WORK/conf" --once --dedicated
+check "dedicata: ferma il lettore" \
+    "$(grep -c 'stop framework' "$WORK/initctl.log" 2>/dev/null || echo 0)" "1"
+check "dedicata: solo dopo aver disegnato" \
+    "$([ "$(grep -n 'eips -g' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
+        -lt "$(grep -n 'stop framework' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
+
+rm -f "$WORK/initctl.log" "$WORK/calls.log"
+run "$WORK/conf-down" --once --dedicated
+check "dedicata: se il ciclo fallisce il lettore resta" \
+    "$(grep -c 'stop framework' "$WORK/initctl.log" 2>/dev/null || echo 0)" "0"
+
+# 10 — after repeated failures the panel must say so, not keep yesterday's board
 NOTICE_WORK="$WORK/notice"
 mkdir -p "$NOTICE_WORK"
 cat > "$WORK/conf-notice" <<EOF

@@ -45,6 +45,7 @@ WIFI_TIMEOUT=45         # seconds to wait for an address
 FULL_REFRESH_EVERY=6    # full panel flashes to clear e-ink ghosting
 MANAGE_WIFI=1           # turn the radio off between refreshes
 FAILS_BEFORE_NOTICE=3   # consecutive failures before the panel says so
+DEDICATED="${DEDICATED:-0}"  # 1: stop the reader UI, but only once a board is up
 # Env-overridable: dedicated mode passes FRONT_LIGHT=0, and the conf file,
 # sourced below, still has the last word.
 FRONT_LIGHT="${FRONT_LIGHT:--1}"   # 0 turns the front light off; -1 leaves it alone
@@ -170,6 +171,27 @@ set_front_light() {
     return 0
 }
 
+enter_dedicated_mode() {
+    # Stop the reader UI — but only from here, and only after a board is on the
+    # panel.
+    #
+    # Two things went wrong when a menu script did this instead. Stopping the
+    # framework kills KUAL, and with it the very script issuing the command, so
+    # the loop was never started and the device was left blank with nothing
+    # running and no way in. And it happened before the first fetch, so a
+    # failure at that point took the reader away and gave nothing back.
+    #
+    # By the time this runs, the loop is detached and a board is drawn. powerd
+    # is deliberately left alone: it owns the front light and the wake path.
+    [ "$DEDICATED" = "1" ] || return 0
+    log "entering dedicated mode: stopping the reader UI"
+    initctl stop framework 2>/dev/null
+    DEDICATED=done
+    sleep 2
+    set_front_light
+    return 0
+}
+
 show_failure_notice() {
     # In dedicated mode the panel is the only output there is. A loop that has
     # been failing for hours must say so, rather than leave yesterday's board up
@@ -273,6 +295,7 @@ cycle() {
         log "unchanged ($remote_hash), but redrawing: panel state unknown"
         if draw; then
             FORCE_DRAW=0
+            enter_dedicated_mode
         else
             wifi_off
             return 1
@@ -296,6 +319,7 @@ cycle() {
             printf '%s' "$remote_hash" > "$HASH_FILE"
             FORCE_DRAW=0
             log "drew board $remote_hash"
+            enter_dedicated_mode
         else
             wifi_off
             return 1
@@ -323,6 +347,7 @@ ONCE=0
 for arg in "$@"; do
     case "$arg" in
         --once) ONCE=1 ;;
+        --dedicated) DEDICATED=1 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
@@ -349,7 +374,6 @@ if [ "$ONCE" = "1" ]; then
 fi
 
 log "glanceboard-dash starting against $BASE_URL"
-set_front_light
 
 FAILURES=0
 while true; do

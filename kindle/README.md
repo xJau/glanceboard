@@ -75,10 +75,15 @@ removing their cause: the framework stops, so nothing repaints the panel, the
 front light goes off — an e-ink board does not need one — and the battery lasts
 considerably longer.
 
-It is a one-way door on a device without SSH: stopping the framework also stops
-KUAL, so the way back to the reader is holding the power button for about twenty
-seconds. That exit always works, because nothing here starts at boot: a restart
-always lands you back in the reader.
+The menu entry does not stop anything itself. It starts the loop, detached, and
+the loop stops the framework once it has a board on the panel — so a device that
+cannot reach the server keeps its reader instead of being left blank, and the
+command that kills KUAL is never issued by a script that KUAL is hosting.
+
+It is still a one-way door on a device without SSH: stopping the framework also
+stops KUAL, so the way back to the reader is holding the power button for about
+twenty seconds. That exit always works, because nothing here starts at boot: a
+restart always lands you back in the reader.
 
 *Avvia ciclo* also disables `pillow`, the service that draws the status bar and
 the system dialogs — the battery, the charging bolt, the airplane icon. That
