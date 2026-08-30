@@ -30,6 +30,9 @@ trap cleanup EXIT
 ok()   { PASS=$((PASS + 1)); printf '  ok    %s\n' "$1"; }
 bad()  { FAIL=$((FAIL + 1)); printf '  FAIL  %s\n' "$1"; }
 check() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (atteso: $3, ottenuto: $2)"; fi; }
+# grep -c prints 0 and exits 1 when nothing matches, so `|| echo 0` appends a
+# second zero and every comparison against it fails for the wrong reason.
+count() { if [ -f "$2" ]; then grep -c "$1" "$2" 2>/dev/null | head -1; else echo 0; fi; }
 
 # ─── Fake device binaries ────────────────────────────────────────
 mkdir -p "$WORK/bin" "$WORK/state" "$WORK/server"
@@ -126,19 +129,21 @@ echo "Device script self-test"
 rm -f "$WORK/eips.log"; rm -rf "$WORK/state"; mkdir -p "$WORK/state"
 run "$WORK/conf" --once
 check "primo giro: esce con successo" "$?" "0"
-check "primo giro: disegna" "$(grep -c 'eips -g' "$WORK/eips.log" 2>/dev/null || echo 0)" "1"
+check "primo giro: disegna" "$(count 'eips .*-g ' "$WORK/eips.log")" "1"
 check "primo giro: salva l'hash" "$([ -s "$WORK/state/last_hash" ] && echo si || echo no)" "si"
 check "primo giro: scarica un PNG" \
     "$(head -c 4 "$WORK/state/board.png" 2>/dev/null | grep -c PNG || echo 0)" "1"
 
-check "primo giro: pulisce il pannello prima di disegnare" \
-    "$([ "$(grep -c 'eips -c' "$WORK/eips.log" 2>/dev/null || echo 0)" -ge 1 ] && echo si || echo no)" "si"
+check "primo giro: disegna con un aggiornamento completo atomico" \
+    "$(count 'eips -f -g' "$WORK/eips.log")" "1"
+check "primo giro: nessuna pulizia separata che lasci il pannello bianco" \
+    "$(count 'eips -c' "$WORK/eips.log")" "0"
 
 # 2 — an unchanged board is still drawn: the hash tracks content, not the panel
 rm -f "$WORK/eips.log"
 run "$WORK/conf" --once
 check "hash invariato: ridisegna comunque" \
-    "$(grep -c 'eips -g' "$WORK/eips.log" 2>/dev/null || echo 0)" "1"
+    "$(count 'eips .*-g ' "$WORK/eips.log")" "1"
 
 # 3 — a wrong token fails cleanly and keeps the board that is already there
 rm -f "$WORK/eips.log"
@@ -184,32 +189,31 @@ rm -f "$WORK/initctl.log" "$WORK/calls.log" "$WORK/eips.log"
 FRONT_LIGHT=0 GLANCEBOARD_CONF="$WORK/conf" PATH="$WORK/bin:$PATH" KT="$WORK" \
     sh "$REPO/kindle/glanceboard-dash.sh" --once --dedicated >/dev/null 2>&1
 check "dedicata: ferma il lettore" \
-    "$(grep -c 'stop framework' "$WORK/initctl.log" 2>/dev/null || echo 0)" "1"
-check "dedicata: ferma anche powerd (disegna la schermata di sonno)" \
-    "$(grep -c 'stop powerd' "$WORK/initctl.log" 2>/dev/null || echo 0)" "1"
-check "dedicata: la luce e' impostata prima di fermare powerd" \
-    "$([ "$(grep -n 'flIntensity' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
-        -lt "$(grep -n 'stop powerd' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
+    "$([ "$(count 'stop' "$WORK/initctl.log")" -ge 1 ] && echo si || echo no)" "si"
+check "dedicata: ferma anche webreader" \
+    "$(count 'stop webreader' "$WORK/initctl.log")" "1"
+check "dedicata: lascia powerd in vita" \
+    "$(count 'stop powerd' "$WORK/initctl.log")" "0"
 check "dedicata: solo dopo aver disegnato" \
-    "$([ "$(grep -n 'eips -g' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
-        -lt "$(grep -n 'stop framework' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
+    "$([ "$(grep -n 'eips' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
+        -lt "$(grep -n 'initctl stop' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
 
 # The framework clears the panel on its way out, so the board has to be drawn
 # again afterwards — otherwise the device shows a white page until the next slot.
-check "dedicata: ridisegna dopo aver fermato il framework" \
-    "$([ "$(grep -n 'stop framework' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
-        -lt "$(grep -n 'eips -g' "$WORK/calls.log" | tail -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
+check "dedicata: ridisegna dopo aver fermato il lettore" \
+    "$([ "$(grep -n 'initctl stop' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
+        -lt "$(grep -n 'eips' "$WORK/calls.log" | tail -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
 check "dedicata: l'ultima cosa disegnata e' la board" \
-    "$(tail -1 "$WORK/calls.log" | grep -c 'eips -g')" "1"
+    "$(tail -1 "$WORK/calls.log" | grep -c 'eips')" "1"
 check "dedicata: ridisegna due volte, per coprire l'ultimo ripasso" \
-    "$([ "$(awk '/stop framework/{f=1} f&&/eips -g/{n++} END{print n+0}' "$WORK/calls.log")" -ge 2 ] && echo si || echo no)" "si"
+    "$([ "$(awk '/initctl stop/{f=1} f&&/eips/{n++} END{print n+0}' "$WORK/calls.log")" -ge 2 ] && echo si || echo no)" "si"
 
 # A cycle that fails must leave the reader alone: losing the interface and
 # getting nothing back is the worst of both.
 rm -f "$WORK/initctl.log" "$WORK/calls.log"
 run "$WORK/conf-down" --once --dedicated
 check "dedicata: se il ciclo fallisce il lettore resta" \
-    "$(grep -c 'stop framework' "$WORK/initctl.log" 2>/dev/null || echo 0)" "0"
+    "$(count 'stop' "$WORK/initctl.log")" "0"
 
 # 10 — after repeated failures the panel must say so, not keep yesterday's board
 NOTICE_WORK="$WORK/notice"
@@ -233,7 +237,7 @@ sleep 7
 kill "$LOOP_PID" 2>/dev/null
 pkill -f "glanceboard-dash.sh" 2>/dev/null
 check "fallimenti ripetuti: il pannello lo dice" \
-    "$([ "$(grep -c 'eips 0' "$WORK/eips.log" 2>/dev/null || echo 0)" -gt 0 ] && echo si || echo no)" "si"
+    "$([ "$(count 'eips 0' "$WORK/eips.log")" -gt 0 ] && echo si || echo no)" "si"
 
 echo
 echo "passati: $PASS   falliti: $FAIL"

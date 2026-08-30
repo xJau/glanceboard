@@ -87,11 +87,18 @@ gone the loop stops trying to turn the radio off between refreshes and leaves it
 on. That costs battery. It is the price of not having a framework to ask, and
 the log says when it happens.
 
-Both the framework and `powerd` are stopped: `powerd` is what paints the sleep
-screen, so leaving it running covered the board with a battery gauge and a clock
-the first time the device suspended. Suspending needs nothing from it — the loop
-writes to the RTC and `/sys/power/state` itself — and the front light is set
-before it goes.
+The reader is stopped with `/etc/init.d/framework stop` and `initctl stop
+webreader`, the commands the established Kindle dashboards use. `initctl stop
+framework`, which this script tried first, is not one of them: it failed
+silently and the reader carried on repainting over the board.
+
+`powerd` is left running. It paints a sleep screen, which is handled by drawing
+the board again immediately before suspending rather than by killing the service
+that owns the front light and the wake path.
+
+Drawing is a single `eips -f -g`, a full refresh and a draw in one command.
+Clearing first with `eips -c` and drawing after leaves the panel white in
+between, and if the draw then fails, white is what stays.
 
 The menu entry does not stop anything itself. It starts the loop, detached, and
 the loop stops the framework once it has a board on the panel — so a device that

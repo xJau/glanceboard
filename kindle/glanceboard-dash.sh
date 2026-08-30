@@ -192,55 +192,34 @@ wait_for_ui_to_stop() {
 }
 
 enter_dedicated_mode() {
-    # Stop the reader UI — but only from here, and only after a board is on the
-    # panel.
+    # Stop the reader UI — from here, and only once a board is on the panel.
     #
-    # Two things went wrong when a menu script did this instead. Stopping the
-    # framework kills KUAL, and with it the very script issuing the command, so
-    # the loop was never started and the device was left blank with nothing
-    # running and no way in. And it happened before the first fetch, so a
-    # failure at that point took the reader away and gave nothing back.
+    # Stopping it from a KUAL menu script killed the script itself, so the loop
+    # never started and the device was left blank. And doing it before the first
+    # fetch took the reader away from a device that then had nothing to show.
     #
-    # By the time this runs, the loop is detached and a board is drawn.
-    #
-    # powerd goes too. Leaving it running looked like the careful choice — it
-    # owns the front light — but powerd is what paints the sleep screen, so the
-    # first time the device suspended it covered the board with a battery gauge
-    # and a clock. The front light is therefore set first, while there is still
-    # something listening, and suspending needs nothing from powerd: the loop
-    # writes to the RTC and /sys/power/state itself.
+    # powerd is left running. It paints a sleep screen, which is dealt with by
+    # drawing the board again immediately before suspending rather than by
+    # killing the service that owns the front light and the wake path.
     [ "$DEDICATED" = "1" ] || return 0
-    log "entering dedicated mode: stopping the reader UI"
+    log "entering dedicated mode"
     set_front_light
-    initctl stop framework 2>/dev/null
-    sleep 1
-    initctl stop powerd 2>/dev/null
-    DEDICATED=done
-    wait_for_ui_to_stop
+    stop_reader_ui
 
-    # The framework clears the panel on its way out. Drawing before stopping it
-    # therefore left the board on screen for a second and a white page for the
-    # next six hours: the last thing to touch the panel has to be us.
-    #
-    # Twice, a few seconds apart. The first draw is the one that matters; the
-    # second costs four seconds and covers any last repaint that arrives after
-    # the process is already gone.
+    # The framework repaints on its way out. The last thing to touch the panel
+    # has to be us, so the board is drawn again once it is gone — twice, a few
+    # seconds apart, in case a late repaint arrives after the process has died.
     FORCE_DRAW=1
     draw
     sleep "$UI_SETTLE"
-
-    # The second pass deliberately does NOT clear first. If eips were to fail
-    # after a clear, the panel would be left white — which is the one outcome
-    # worse than a stale board, and exactly what a clear-then-fail looks like.
-    FORCE_DRAW=0
+    FORCE_DRAW=1
     draw
-    log "panel state after dedicated handover: $(ps 2>/dev/null | grep -v grep | grep -c cvm) reader processes"
+    FORCE_DRAW=0
+    DEDICATED=done
 
-    # The radio is switched through com.lab126.cmd, which *is* the framework.
-    # With it gone the calls go nowhere, and the loop would spend forty-five
-    # seconds a cycle waiting for a CONNECTED that cannot arrive. The radio
-    # stays on instead — it costs battery, and it is the price of not having a
-    # framework to ask.
+    # The radio switch belongs to the framework (com.lab126.cmd). With it gone
+    # the calls go nowhere, and the loop would spend forty-five seconds a cycle
+    # waiting for a CONNECTED that cannot arrive.
     if [ "$MANAGE_WIFI" = "1" ]; then
         log "dedicated mode: leaving the radio on, the framework owned that switch"
         MANAGE_WIFI=0
@@ -279,29 +258,59 @@ draw() {
     esac
     count=$((count + 1))
 
-    full=no
+    # `eips -f -g` does a full refresh and the draw in one command. Clearing
+    # first with `eips -c` and drawing after leaves the panel white in between,
+    # and if the draw then fails — or anything repaints during the gap — white
+    # is what stays. That gap is what a "frame for one second, then white"
+    # looks like.
     if [ "$count" -ge "$FULL_REFRESH_EVERY" ] || [ "$FORCE_DRAW" = "1" ]; then
         full=yes
-        # A full flash every so often, and always on the first draw of a run:
-        # whatever the reader left on the panel — a status bar, an airplane
-        # icon, a book cover — survives a partial update as a ghost, and the
-        # first draw after stopping the framework is exactly when that happens.
-        eips -c 2>/dev/null
-        eips -c 2>/dev/null
         count=0
+        eips -f -g "$IMAGE_FILE" 2>>"$LOG_FILE"
+        status=$?
+    else
+        full=no
+        eips -g "$IMAGE_FILE" 2>>"$LOG_FILE"
+        status=$?
     fi
     echo "$count" > "$COUNTER_FILE" 2>/dev/null
 
-    eips -g "$IMAGE_FILE" 2>>"$LOG_FILE"
-    status=$?
     if [ "$status" -ne 0 ]; then
-        # The clear has already happened by now, so a failure here is exactly
-        # what a white panel looks like. Say so, loudly, in the one place that
-        # can be read on the device.
-        log "ERROR: eips -g exited $status — the panel was cleared and not drawn"
+        log "ERROR: eips exited $status drawing $IMAGE_FILE"
         return 1
     fi
     log "draw ok (full refresh: $full)"
+    return 0
+}
+
+stop_reader_ui() {
+    # The commands that actually work on Kindle firmware, in the order the
+    # established dashboards use them. `initctl stop framework` — what this
+    # script used before — is not one of them, and its failure was being sent
+    # to /dev/null, so the reader carried on repainting over the board while
+    # the log said nothing.
+    log "stopping the reader UI"
+    if [ -x /etc/init.d/framework ]; then
+        /etc/init.d/framework stop >>"$LOG_FILE" 2>&1
+        log "  /etc/init.d/framework stop -> $?"
+    else
+        log "  /etc/init.d/framework not present"
+    fi
+    initctl stop webreader >>"$LOG_FILE" 2>&1
+    log "  initctl stop webreader -> $?"
+
+    waited=0
+    while [ "$waited" -lt "$UI_STOP_TIMEOUT" ]; do
+        ps 2>/dev/null | grep -v grep | grep -q "cvm" || break
+        sleep 1
+        waited=$((waited + 1))
+    done
+    if ps 2>/dev/null | grep -v grep | grep -q "cvm"; then
+        log "WARN: the reader UI is still running after ${waited}s"
+    else
+        log "reader UI gone after ${waited}s"
+    fi
+    sleep "$UI_SETTLE"
     return 0
 }
 
@@ -309,6 +318,11 @@ draw() {
 
 suspend_for() {
     seconds="$1"
+    # Draw immediately before sleeping. Whatever paints a sleep screen, the
+    # board is the most recent thing on the panel when the device goes down.
+    if [ -f "$IMAGE_FILE" ]; then
+        eips -g "$IMAGE_FILE" 2>/dev/null
+    fi
     [ "$seconds" -lt "$MIN_SLEEP" ] && seconds="$MIN_SLEEP"
     [ "$seconds" -gt "$MAX_SLEEP" ] && seconds="$MAX_SLEEP"
     log "sleeping ${seconds}s"
