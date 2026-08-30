@@ -196,6 +196,24 @@ enter_dedicated_mode() {
     sleep 1
     initctl stop powerd 2>/dev/null
     DEDICATED=done
+    sleep 2
+
+    # The framework clears the panel on its way out. Drawing before stopping it
+    # therefore left the board on screen for a second and a white page for the
+    # next six hours: the last thing to touch the panel has to be us.
+    FORCE_DRAW=1
+    draw
+    FORCE_DRAW=0
+
+    # The radio is switched through com.lab126.cmd, which *is* the framework.
+    # With it gone the calls go nowhere, and the loop would spend forty-five
+    # seconds a cycle waiting for a CONNECTED that cannot arrive. The radio
+    # stays on instead — it costs battery, and it is the price of not having a
+    # framework to ask.
+    if [ "$MANAGE_WIFI" = "1" ]; then
+        log "dedicated mode: leaving the radio on, the framework owned that switch"
+        MANAGE_WIFI=0
+    fi
     return 0
 }
 

@@ -75,6 +75,14 @@ removing their cause: the framework stops, so nothing repaints the panel, the
 front light goes off — an e-ink board does not need one — and the battery lasts
 considerably longer.
 
+The board is drawn again after the framework stops — it clears the panel on its
+way out, so drawing only before it goes left a white page until the next slot.
+
+The radio switch belongs to the framework too (`com.lab126.cmd`), so once it is
+gone the loop stops trying to turn the radio off between refreshes and leaves it
+on. That costs battery. It is the price of not having a framework to ask, and
+the log says when it happens.
+
 Both the framework and `powerd` are stopped: `powerd` is what paints the sleep
 screen, so leaving it running covered the board with a battery gauge and a clock
 the first time the device suspended. Suspending needs nothing from it — the loop

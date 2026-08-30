@@ -194,6 +194,16 @@ check "dedicata: solo dopo aver disegnato" \
     "$([ "$(grep -n 'eips -g' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
         -lt "$(grep -n 'stop framework' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
 
+# The framework clears the panel on its way out, so the board has to be drawn
+# again afterwards — otherwise the device shows a white page until the next slot.
+check "dedicata: ridisegna dopo aver fermato il framework" \
+    "$([ "$(grep -n 'stop framework' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
+        -lt "$(grep -n 'eips -g' "$WORK/calls.log" | tail -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
+check "dedicata: l'ultima cosa disegnata e' la board" \
+    "$(tail -1 "$WORK/calls.log" | grep -c 'eips -g')" "1"
+
+# A cycle that fails must leave the reader alone: losing the interface and
+# getting nothing back is the worst of both.
 rm -f "$WORK/initctl.log" "$WORK/calls.log"
 run "$WORK/conf-down" --once --dedicated
 check "dedicata: se il ciclo fallisce il lettore resta" \
