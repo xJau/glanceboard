@@ -80,6 +80,15 @@ KUAL, so the way back to the reader is holding the power button for about twenty
 seconds. That exit always works, because nothing here starts at boot: a restart
 always lands you back in the reader.
 
+*Avvia ciclo* also disables `pillow`, the service that draws the status bar and
+the system dialogs — the battery, the charging bolt, the airplane icon. That
+keeps the reader's chrome off the board without stopping the reader. The touch
+layer is still live underneath, so a stray tap still brings the home screen
+back; only dedicated mode removes that.
+
+The charge LED on the bottom edge is hardware. Nothing on the device can turn
+it off.
+
 If a cycle fails three times in a row, the panel says so and shows the tail of
 the log. Without that, a loop that has been broken since Tuesday looks exactly
 like a board that has nothing new to show.

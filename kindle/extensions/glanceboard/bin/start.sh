@@ -23,5 +23,11 @@ fi
 # The screensaver is what would otherwise paint over the board.
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
 
+# "pillow" draws the status bar and the system dialogs — the battery, the
+# charging bolt, the airplane icon. Disabling it leaves the reader running but
+# stops it decorating the board. The touch layer is still live underneath, so
+# this is an improvement on dedicated mode, not a replacement for it.
+lipc-set-prop com.lab126.pillow disableEnablePillow 1 2>/dev/null
+
 nohup sh /mnt/us/glanceboard/glanceboard-dash.sh >> "$LOG" 2>&1 &
 echo $! > "$PIDFILE"

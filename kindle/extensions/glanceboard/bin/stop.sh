@@ -8,5 +8,6 @@ if [ -f "$PIDFILE" ]; then
 fi
 
 lipc-set-prop com.lab126.powerd preventScreenSaver 0 2>/dev/null
+lipc-set-prop com.lab126.pillow disableEnablePillow 0 2>/dev/null
 initctl start framework 2>/dev/null
 initctl start powerd 2>/dev/null
