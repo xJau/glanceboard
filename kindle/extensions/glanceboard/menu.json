@@ -5,34 +5,34 @@
             "priority": 1,
             "items": [
                 {
-                    "name": "Un giro adesso (prova)",
+                    "name": "1. Un giro di prova",
                     "priority": 1,
                     "action": "/mnt/us/extensions/glanceboard/bin/once.sh",
                     "exitmenu": true
                 },
                 {
-                    "name": "Mostra log",
+                    "name": "2. Avvia cornice (consigliato)",
                     "priority": 2,
+                    "action": "/mnt/us/extensions/glanceboard/bin/dedicated.sh",
+                    "exitmenu": true
+                },
+                {
+                    "name": "Mostra log",
+                    "priority": 3,
                     "action": "/mnt/us/extensions/glanceboard/bin/showlog.sh",
                     "exitmenu": true
                 },
                 {
-                    "name": "Avvia ciclo (lettore acceso)",
-                    "priority": 3,
+                    "name": "Avvia col lettore acceso",
+                    "priority": 4,
                     "action": "/mnt/us/extensions/glanceboard/bin/start.sh",
                     "exitmenu": true
                 },
                 {
-                    "name": "Ferma ciclo",
-                    "priority": 4,
+                    "name": "Ferma (solo col lettore acceso)",
+                    "priority": 5,
                     "action": "/mnt/us/extensions/glanceboard/bin/stop.sh",
                     "exitmenu": false
-                },
-                {
-                    "name": "Modalita dedicata (spegne KUAL)",
-                    "priority": 5,
-                    "action": "/mnt/us/extensions/glanceboard/bin/dedicated.sh",
-                    "exitmenu": true
                 }
             ]
         }

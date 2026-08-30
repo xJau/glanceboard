@@ -23,8 +23,10 @@ if [ -f "$PIDFILE" ]; then
     rm -f "$PIDFILE"
 fi
 
-eips 0 2 "Glanceboard: modalita' dedicata" 2>/dev/null
-eips 0 3 "Attendo la board, poi fermo il lettore." 2>/dev/null
+eips 0 2 "Glanceboard: avvio cornice." 2>/dev/null
+eips 0 3 "Scarico la board, poi fermo il lettore." 2>/dev/null
+eips 0 5 "Da qui il touch non fa piu' nulla." 2>/dev/null
+eips 0 6 "Per tornare al lettore: accensione ~20s." 2>/dev/null
 
 # setsid detaches from KUAL's session, so stopping the framework later cannot
 # take the loop down with it. nohup alone does not survive that.
