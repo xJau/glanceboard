@@ -28,6 +28,13 @@ sleep 5
 initctl stop framework 2>/dev/null
 initctl stop powerd 2>/dev/null
 
+# The reader's last paint stays on the panel after it stops — e-ink holds the
+# image, and a partial update leaves the dark parts showing through. Flush it
+# before the loop draws over it.
+sleep 2
+eips -c 2>/dev/null
+eips -c 2>/dev/null
+
 # No reader underneath means no airplane icon, no touch repainting the board,
 # and no power manager dimming it — the three things that make "reader running"
 # mode a compromise. The front light goes off too: an e-ink board does not need

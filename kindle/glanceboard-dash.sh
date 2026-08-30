@@ -201,8 +201,11 @@ draw() {
     esac
     count=$((count + 1))
 
-    if [ "$count" -ge "$FULL_REFRESH_EVERY" ]; then
-        # A full flash every so often; partial updates leave ghosting behind.
+    if [ "$count" -ge "$FULL_REFRESH_EVERY" ] || [ "$FORCE_DRAW" = "1" ]; then
+        # A full flash every so often, and always on the first draw of a run:
+        # whatever the reader left on the panel — a status bar, an airplane
+        # icon, a book cover — survives a partial update as a ghost, and the
+        # first draw after stopping the framework is exactly when that happens.
         eips -c 2>/dev/null
         eips -c 2>/dev/null
         count=0

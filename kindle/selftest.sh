@@ -124,6 +124,9 @@ check "primo giro: salva l'hash" "$([ -s "$WORK/state/last_hash" ] && echo si ||
 check "primo giro: scarica un PNG" \
     "$(head -c 4 "$WORK/state/board.png" 2>/dev/null | grep -c PNG || echo 0)" "1"
 
+check "primo giro: pulisce il pannello prima di disegnare" \
+    "$([ "$(grep -c 'eips -c' "$WORK/eips.log" 2>/dev/null || echo 0)" -ge 1 ] && echo si || echo no)" "si"
+
 # 2 — an unchanged board is still drawn: the hash tracks content, not the panel
 rm -f "$WORK/eips.log"
 run "$WORK/conf" --once
