@@ -14,10 +14,10 @@ Nothing here reformats the device or touches the jailbreak. Everything lives in
 
 ## What you need on the device
 
-- A jailbroken Kindle (this is what gives you a shell and `eips`).
-- SSH access over USB (USBNetwork) or Wi-Fi, or a KUAL shell extension. The
-  files can be copied over USB mass storage, but starting the loop and setting
-  it to run at boot both need a shell.
+- A jailbroken Kindle with **KUAL**. That is enough: the installer ships a KUAL
+  extension, so nothing here needs a shell on the device.
+- SSH (USBNetwork) is optional. It makes debugging easier, but every step below
+  can be done from the Kindle's own menu.
 
 ## Install
 
@@ -39,33 +39,33 @@ That copies:
 /mnt/us/glanceboard/glanceboard-dash.sh
 /mnt/us/glanceboard/glanceboard.conf     (from the example, if not already there)
 /mnt/us/glanceboard/state/
+/mnt/us/extensions/glanceboard/          (the KUAL menu)
 ```
 
-Then eject the Kindle, connect to it over SSH, and fill in the config:
+Fill in `glanceboard.conf` while the device is still mounted — `BASE_URL`,
+`DISPLAY_TOKEN`, and the `CF_ACCESS_*` pair if the hostname is behind a
+Cloudflare Access policy.
 
-```sh
-vi /mnt/us/glanceboard/glanceboard.conf     # BASE_URL and DISPLAY_TOKEN
-```
+## First run, from KUAL
 
-## First run
+Eject the Kindle, open KUAL, and you will find a **Glanceboard** menu:
 
-Stop the reader UI first, or it will redraw over the board:
+| Entry | What it does |
+|---|---|
+| **Un giro adesso (prova)** | One cycle, no suspend, reader left running. Start here. |
+| **Mostra log** | Draws the tail of the log on the panel. The only way to read it without SSH. |
+| **Avvia dashboard** | Stops the reader UI and runs the loop for real. |
+| **Ferma dashboard** | Stops the loop and brings the reader back. |
 
-```sh
-initctl stop framework
-initctl stop powerd          # optional: stops the device dimming the panel
-sh /mnt/us/glanceboard/glanceboard-dash.sh
-```
+*Un giro adesso* is the safe one: it draws the board and leaves everything else
+alone, so a failed attempt costs nothing. If the screen stays blank, the log is
+one entry away — `is not a PNG` usually means the server returned an error page
+instead of an image, which points at the token or the Access policy.
 
-The first cycle logs to `/mnt/us/glanceboard/glanceboard.log`. Read it if the
-screen stays blank — `is not a PNG` usually means the token or the Access
-service token is wrong and the server returned an error page instead.
-
-To get the reader back:
-
-```sh
-initctl start framework
-```
+Once that works, *Avvia dashboard* stops the framework and starts the loop.
+**That also stops KUAL**, so *Ferma dashboard* is no longer reachable
+afterwards: to get the reader back, hold the power button for about twenty
+seconds and let the device restart.
 
 ## Run it at boot
 
