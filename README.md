@@ -83,7 +83,7 @@ Render the bundled sample without any configuration, network or server:
 That is the loop for iterating on the layout. Useful flags:
 
 ```bash
---size 1072x1448     # a Paperwhite 3/4 panel
+--size 1236x1648     # a Paperwhite 5/6 panel
 --debug-regions      # outline the header, agenda, illustration and footer
 --date 2026-09-01    # a specific day
 --ics path.ics       # a real feed saved to a file
@@ -162,7 +162,7 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_TIMEZONE` | `Europe/Rome` | Used for the day boundary and the slots. |
 | `GB_LAT`, `GB_LON` | — | Weather location. Omit to skip weather. |
 | `GB_TEMP_UNIT` | `celsius` | `celsius` or `fahrenheit`. |
-| `GB_WIDTH`, `GB_HEIGHT` | `1236`, `1648` | Panel size. PW3/PW4: `1072`, `1448`. |
+| `GB_WIDTH`, `GB_HEIGHT` | `1072`, `1448` | Panel size. PW5/PW6: `1236`, `1648`. |
 | `GB_ART_FRACTION` | `0.30` | Share of the height reserved for the illustration. |
 | `GB_MAX_EVENTS` | `12` | Upper bound before the `+N altri` note. |
 | `GB_SLOTS` | `5,12,18` | Hours at which the board is regenerated. |

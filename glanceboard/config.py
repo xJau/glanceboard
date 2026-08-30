@@ -28,8 +28,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_WIDTH = 1236   # Kindle Paperwhite 5/6 (6.8"). PW3/PW4: 1072x1448.
-DEFAULT_HEIGHT = 1648
+DEFAULT_WIDTH = 1072   # Kindle Paperwhite 4 (10th gen, 6"). PW5/PW6: 1236x1648.
+DEFAULT_HEIGHT = 1448
 DEFAULT_TIMEZONE = "Europe/Rome"
 DEFAULT_SLOTS = (5, 12, 18)
 
