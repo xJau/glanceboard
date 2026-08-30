@@ -54,6 +54,25 @@ class FontMissingError(RuntimeError):
     """The vendored typeface is not where the configuration says it is."""
 
 
+@lru_cache(maxsize=256)
+def _load(path: str, size: int, weight: int) -> ImageFont.FreeTypeFont:
+    """Load one instance of the variable font.
+
+    Keyed on the path rather than on a Fonts object: caching a method keyed on
+    `self` means every render, which builds its own Fonts, misses the cache and
+    re-reads the file for each of the ten or so faces it needs — while pinning
+    the old objects in the cache.
+    """
+    font = ImageFont.truetype(path, size)
+    try:
+        font.set_variation_by_axes([float(weight)])
+    except OSError:
+        # FreeType without variable-font support: fall back to the default
+        # instance rather than failing the whole render.
+        pass
+    return font
+
+
 class Fonts:
     """Loads one variable font and instantiates it per size and weight."""
 
@@ -65,16 +84,8 @@ class Fonts:
                 "assets/fonts/; set GB_FONT_DIR if it lives elsewhere."
             )
 
-    @lru_cache(maxsize=64)
     def get(self, size: int, weight: int = REGULAR) -> ImageFont.FreeTypeFont:
-        font = ImageFont.truetype(str(self.path), size)
-        try:
-            font.set_variation_by_axes([float(weight)])
-        except OSError:
-            # FreeType without variable-font support: fall back to the default
-            # instance rather than failing the whole render.
-            pass
-        return font
+        return _load(str(self.path), size, weight)
 
 
 WEEKDAYS = (

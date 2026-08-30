@@ -151,3 +151,27 @@ def test_a_failing_generation_does_not_take_the_scheduler_down(settings, monkeyp
 
     monkeypatch.setattr(server, "generate", explode)
     server._safe_generate(settings)  # must not raise
+
+
+def test_a_token_in_the_query_string_is_redacted_from_the_access_log():
+    """The device may have to send it there; the log must not keep it."""
+    import logging
+
+    from glanceboard.server import RedactQueryToken
+
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, "%s - %s %s", None, None)
+    record.args = ("127.0.0.1:1", "GET", "/display?token=super-secret-value")
+    RedactQueryToken().filter(record)
+    assert "super-secret-value" not in str(record.args)
+    assert "token=REDACTED" in str(record.args)
+
+
+def test_redaction_leaves_ordinary_paths_alone():
+    import logging
+
+    from glanceboard.server import RedactQueryToken
+
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, "%s", None, None)
+    record.args = ("127.0.0.1:1", "GET", "/display/check")
+    RedactQueryToken().filter(record)
+    assert record.args[2] == "/display/check"

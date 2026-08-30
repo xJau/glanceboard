@@ -244,3 +244,16 @@ def test_the_weather_block_never_outgrows_its_card(width, height):
     for label in sorted(set(WMO_CODES.values())):
         _, block_height, _, _ = _weather_metrics(draw, layout, fonts, label)
         assert block_height <= area_height, f"{label!r} overflows the weather card"
+
+
+def test_the_font_cache_is_shared_between_renders():
+    """Caching on the instance means every render re-reads the file."""
+    first = Fonts(FONT_DIR).get(40, 400)
+    second = Fonts(FONT_DIR).get(40, 400)
+    assert first is second
+
+
+def test_different_weights_are_different_faces():
+    regular = Fonts(FONT_DIR).get(40, 400)
+    bold = Fonts(FONT_DIR).get(40, 700)
+    assert regular is not bold

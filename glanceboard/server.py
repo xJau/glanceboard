@@ -26,6 +26,7 @@ host is reached directly over the LAN, this is what still refuses.
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 import threading
 from contextlib import asynccontextmanager
@@ -39,6 +40,26 @@ from .pipeline import generate, load_state
 from .schedule import next_slot
 
 log = logging.getLogger(__name__)
+
+_TOKEN_IN_QUERY = re.compile(r"(token=)[^&\s]+")
+
+
+class RedactQueryToken(logging.Filter):
+    """Keep the query-string token out of the access log.
+
+    The token may travel in the query string, because BusyBox wget on an old
+    Kindle cannot always set a header. uvicorn logs the full path, so without
+    this the credential is written to the container log in clear text on every
+    request the device makes.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _TOKEN_IN_QUERY.sub(r"\1REDACTED", value) if isinstance(value, str) else value
+                for value in record.args
+            )
+        return True
 
 
 def _client_token(request: Request) -> str | None:
@@ -77,6 +98,7 @@ def create_app(settings: Settings) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    logging.getLogger("uvicorn.access").addFilter(RedactQueryToken())
 
     def require_token(request: Request) -> None:
         if settings.allow_no_token and not settings.display_token:
