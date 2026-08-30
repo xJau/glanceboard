@@ -1,0 +1,22 @@
+services:
+  glanceboard:
+    build: .
+    image: glanceboard-kindle:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Rendered PNG and state. Survives rebuilds; nothing secret lives here.
+      - ./data:/data
+    networks:
+      - edge
+    # Deliberately no `ports:` mapping. The board is reached through Caddy on
+    # the shared network and the Cloudflare Tunnel — never straight off the LAN.
+    # Uncomment only if Caddy runs on the host rather than in a container, and
+    # keep the 127.0.0.1 prefix so the port is not exposed to the network:
+    # ports:
+    #   - "127.0.0.1:8000:8000"
+
+networks:
+  edge:
+    # Set to `external: true` if Caddy already owns this network.
+    name: edge

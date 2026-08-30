@@ -1,0 +1,34 @@
+# Glanceboard dash configuration — lives at /mnt/us/glanceboard/glanceboard.conf
+# Plain shell assignments; the dash script sources this file.
+
+# Base URL of the board, without a trailing slash.
+# The script appends /display and /display/check.
+BASE_URL="https://glanceboard.example.com"
+
+# The GB_DISPLAY_TOKEN from the server's .env. Checked by the server itself,
+# independently of Cloudflare Access.
+DISPLAY_TOKEN=""
+
+# Cloudflare Access service token. Leave empty if the hostname is not behind
+# an Access policy.
+CF_ACCESS_CLIENT_ID=""
+CF_ACCESS_CLIENT_SECRET=""
+
+# Kindle firmware ships an old CA bundle. If TLS fails against Cloudflare,
+# copy a current bundle onto the device and point at it here.
+# CA_BUNDLE="/mnt/us/glanceboard/cacert.pem"
+# Last resort while debugging only — this disables certificate checking:
+# ALLOW_INSECURE_TLS=1
+
+# Timing. WAKE_GRACE is added to the server's own interval so the next board
+# has finished rendering before the device asks for it.
+WAKE_GRACE=120
+MIN_SLEEP=300
+MAX_SLEEP=21600
+RETRY_SLEEP=600
+
+# Full panel flash every N draws, to clear e-ink ghosting.
+FULL_REFRESH_EVERY=6
+
+# Turn the radio off between refreshes.
+MANAGE_WIFI=1

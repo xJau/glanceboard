@@ -1,40 +1,21 @@
 # ─── Environment & Secrets ──────────────────────────────
 .env
 .env.*
-functions/.env
+!.env.example
 
-# ─── Firebase ───────────────────────────────────────────
-.firebase/
-.firebaserc
+# ─── Generated Data ─────────────────────────────────────
+data/
+out/
+*.png
+!assets/**/*.png
 
-# ─── App Config (contains API keys) ────────────────────
-# Self-hosters: copy config.example.js → config.js
-web/src/config.js
-server/data/config.json
-server/data/gmail_credentials.json
-server/data/gmail_token.json
-
-# ─── Generated Data ────────────────────────────────────
-server/data/images/
-
-# ─── Build Artifacts ────────────────────────────────────
-web/dist/
-output/
-
-# ─── Dependencies ──────────────────────────────────────
-node_modules/
-web/node_modules/
-venv/
-functions/venv/
-email-worker/node_modules/
-
-# ─── Python ────────────────────────────────────────────
+# ─── Python ─────────────────────────────────────────────
 __pycache__/
-functions/__pycache__/
 *.pyc
+.venv/
+venv/
+.pytest_cache/
 
-# ─── OS Files ──────────────────────────────────────────
+# ─── OS Files ───────────────────────────────────────────
 .DS_Store
 *.log
-Thumbs.db
-web/public/IMG_7447.HEIC

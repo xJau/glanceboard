@@ -1,9 +1,10 @@
 <!--
 Copyright 2026 Google LLC
+Copyright 2026 Glanceboard Kindle contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
-You may obtain a copy of the Apache License at
+You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
@@ -14,284 +15,190 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Glanceboard Demo
+# Glanceboard for Kindle
 
-**Glanceboard is an e-ink display that helps you start your day, built with Gemini**
+A daily board — date, temperatures, appointments — rendered as a grayscale PNG
+and drawn on a jailbroken Kindle Paperwhite.
 
-This demo showcases how to use Gemini 3.6 Flash and Nano Banana to turn your Google Calendar into art on an e-ink display.
+A fork of [google-gemini/glanceboard](https://github.com/google-gemini/glanceboard),
+which targets a 6-colour Waveshare e-ink frame and generates the whole picture
+with an image model. This fork keeps the calendar and weather sources and
+replaces everything else.
 
-Using just a computer and an iCal feed, Glanceboard transforms your schedule, local weather, and custom family characters into Nano Banana generated art. Every morning, it reads your calendar and generates a fresh illustration so you know what's happening today, what to pack, and what to wear.
+## What is different from upstream
 
-No screens. No notifications. Just a quiet picture frame that helps you know what's happening today.
+| | Upstream | Here |
+|---|---|---|
+| Display | Waveshare 7.3", 800×480, 6 colours, landscape | Kindle Paperwhite, portrait, 16 grays |
+| Layout | Drawn by an image model from a prompt | Drawn by PIL, deterministically |
+| Config | `data/config.json`, editable over HTTP | Environment variables only |
+| `/api/config` | Served the API key unauthenticated | Does not exist |
+| Bind address | `0.0.0.0` | `127.0.0.1` by default |
+| Display endpoint | Unauthenticated | Token required, checked by the server itself |
+| Removed | dashboard, Firebase functions, Gmail, widgets, characters | |
 
-**Note:** This demo was entirely vibe coded with Google Antigravity and uses off the shelf hardware.
+Phase 1 — what is here — generates no images and calls no models.
 
-![Glanceboard on an e-ink display](web/public/display.jpg)
+## The layout
 
----
+```
+┌────────────────────────────────────────┐
+│ Martedì                      18° / 28° │  header: day, date, min/max
+│ 1 settembre 2026              Coperto  │
+├────────────────────────────────────────┤
+│ tutto il giorno   Studio chiuso        │  agenda: time on the left,
+│ 09:00             Consulenza Rossi     │  title on the right
+│ 10:00                                  │
+│ 11:30             Call Bianchi SRL     │
+│ …                                      │
+├────────────────────────────────────────┤
+│                                        │
+│         (illustration band)            │  reserved, empty in phase 1
+│                                        │
+├────────────────────────────────────────┤
+│ aggiornato 05:00                       │
+└────────────────────────────────────────┘
+```
 
-## How it works
+The illustration band is reserved now even though nothing draws into it. When
+phase 2 adds an image model, it fills that band and nothing else: the text stays
+deterministic, so a model can never restate an appointment time incorrectly, and
+a failed generation costs the board its picture rather than its content. The
+deterministic renderer is not a separate fallback path that rots unused — it is
+the same path that runs every day.
 
-Glanceboard runs a lightweight local server on your computer (or a Raspberry Pi). Every few hours, it:
-
-1. Reads your calendar events via iCal URL (universal standard for calendar data .ics file)
-2. Fetches the current weather for your location
-3. Builds a creative prompt for your characters
-4. Generates an illustrated daily planner image from the above using Nano Banana
-5. Dithers the image for 6-colour e-ink and serves it to your display
-
-The display polls the server for new images — no cloud account needed.
-
----
-
-## What you need
-
-| Part | Description |
-|------|-------------|
-| [**Waveshare ESP32-S3 PhotoPainter**](https://www.waveshare.com/esp32-s3-photopainter.htm) | 7.3" colour e-ink display in a wooden frame with built-in WiFi |
-| **USB-C cable** | For power (or use an optional lithium battery) |
-| **A computer or Pi** | To run the Glanceboard server |
-| **Python 3.9+** | Required for the server |
-| **Node.js 18+** | Required to build the web dashboard |
-
-No soldering. No ribbon cables. Just one display and a server.
-
-> **Using a Raspberry Pi as the display?** The legacy Pi + separate e-ink HAT setup is still supported — see [Legacy Pi Setup](pi/LEGACY_PI_SETUP.md).
-
----
-
-## Features
-
-- **Daily Nano Banana art** — Your calendar events become illustrated daily planners
-- **6 art styles** — Pen-and-ink, fashion sketch, watercolour, pixel art, comic book, and Japanese sumi-e
-- **Custom characters** — Add people and pets with reference photos for consistency
-- **Drag-and-drop widgets** — Add sports scores, stock tickers, news, daily quotes, email digest, weather, and more to your display layout
-- **Google Calendar** — Connect via iCal URL (any calendar that exports iCal works)
-- **Weather-aware** — Shows weather on the display; characters dress for the actual conditions
-- **Location-aware** — Uses your location to generate regionally accurate scenes (no snow in Sydney!)
-- **Smart countdowns** — AI scans your calendar for birthdays, trips, and holidays to count down to
-- **Gemini-powered event rewriting** — Turns "9am Tavi Library Bag" into "Tavi — remember library bag!"
-- **E-ink ready** — Floyd-Steinberg dithered for 6-colour Spectra panels
-- **Smart scheduling** — Auto-generates at your chosen times, only when your calendar or weather changes
-- **Custom prompts** — Edit the image generation prompt template
-- **Email digest** — Optional Gmail integration shows unread email summaries ([setup required](EMAIL_SETUP.md))
-- **Fully local** — Runs on your own machine, no cloud account required
-
----
-
-## Quick start
-
-### 1. Clone and install
+## Local development
 
 ```bash
-git clone https://github.com/google-gemini/glanceboard.git
-cd glanceboard
-
-# Install server dependencies
-cd server
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cd ..
-
-# Install and build the web dashboard
-cd web
-npm install
-npm run build   # automatically creates src/config.js from template on first run
-cd ..
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
 ```
 
-### 2. Start the server
+Render the bundled sample without any configuration, network or server:
 
 ```bash
-cd server
-source venv/bin/activate
-python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
+.venv/bin/python -m glanceboard render --sample --out out/board.png --open
 ```
 
-Open [http://localhost:8000](http://localhost:8000) — the Glanceboard dashboard will guide you through setup:
+That is the loop for iterating on the layout. Useful flags:
 
-- **API key** — Enter your Google AI Studio key (see [API key setup](#api-key-setup) below)
-- **Calendar** — Paste your iCal URL
-- **Location** — Set your timezone and location for weather
-- **Art style** — Choose from 6 styles
-- **Characters** — Add your family members and pets
-
-### 3. Set up the display
-
-See [Display setup guide](#display-setup-guide) below to flash and connect your PhotoPainter.
-
-> **Want to keep it running 24/7?** See [Self-Hosting Guide](SELF_HOSTING.md) for systemd service setup, Raspberry Pi instructions, and running Glanceboard as a permanent home server.
-
-## Suggested models
-
-Glanceboard works with a range of AI image generation models:
-
-| Model | Provider | Notes |
-|-------|----------|-------|
-| **Nano Banana Pro** | Gemini API | **Recommended.** Best quality, text rendering, and character consistency. |
-| **Nano Banana 2** | Gemini API | Balances speed with quality |
-
-Glanceboard also uses **Gemini Flash 3.6** for intelligence:
-- Rewriting calendar events into friendly language
-- Generating weather-accurate scene descriptions
-- Scanning calendars for important upcoming events
-
----
-
-## API key setup
-
-Glanceboard requires a **Gemini API key** to generate images.
-
-1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-2. Click **Create API Key** → select your Google Cloud project (or create one)
-3. Copy the key (starts with `AIza...`)
-4. Paste it into the Glanceboard dashboard during onboarding
-
-> **That's it.** The key is stored locally in your `server/data/config.json` file and used server-side to call the Gemini API.
-
----
-
-## Display setup guide
-
-### Step 1: Flash the firmware
-
-1. Connect your PhotoPainter to your computer via USB-C
-2. Open the [Glanceboard Web Flasher](https://raphdixon.github.io/glanceboard-firmware/) in **Chrome or Edge**
-3. Click **Install Glanceboard Firmware** and select your device
-4. Wait for the flash to complete (~2 minutes)
-5. Unplug and replug the USB-C cable to reboot
-
-### Step 2: Connect to WiFi and configure
-
-1. After rebooting, the display shows a setup screen with the WiFi name `Glanceboard-XXXX`
-2. On your phone or computer, connect to the `Glanceboard-XXXX` WiFi network (no password)
-3. A setup page will open automatically (or go to `http://192.168.4.1`)
-4. Enter your **WiFi network name** and **password** (leave password blank for open networks)
-5. Paste the **Display Image URL** from your Glanceboard dashboard (found in **Settings → E-Ink Display Setup → 📋 Copy URL**) — it looks like `http://YOUR_SERVER_IP:8000/images/latest_display.bmp`
-6. Choose a **poll interval** (how often the display refreshes)
-7. Click **Save & Connect**
-
-The device will restart, connect to your WiFi, and begin polling for images. The display will update within ~60 seconds.
-
-> **Tip:** You can reconfigure the device later by accessing its IP address from any browser on the same network. The IP is shown on the display after setup.
-
-> **Using a Raspberry Pi as the display?** The legacy Pi + separate e-ink HAT setup is still supported — see [Legacy Pi Setup](pi/LEGACY_PI_SETUP.md).
-
----
-
-## Architecture
-
-```
-Local Server (FastAPI on Python 3.11+)
-──────────────────────────────────────────────────────
-  server/app.py
-  ├── /api/config        GET/POST — settings
-  ├── /api/generate      POST — trigger image generation
-  ├── /api/status        GET — generation status
-  ├── /api/preview       GET — preview the prompt
-  ├── /images/*          static — generated display images
-  └── /*                 static — built Vite SPA dashboard
-
-  data/config.json       local config (API key, calendar, etc.)
-  data/images/           generated display images
-
-  Scheduler (APScheduler)
-  └── runs every 15 min, generates at user-chosen hours
-      only when calendar/weather has changed
-
-  Web Dashboard (Vite SPA)
-  ├── Onboarding wizard
-  ├── Settings panel
-  ├── Drag-and-drop widget layout editor
-  ├── Character manager
-  └── Live display preview
-──────────────────────────────────────────────────────
-         │                              │
-         ▼                              ▼
-  ESP32-S3 PhotoPainter         AI Provider
-  polls /images/latest_*        Gemini API
-  updates e-ink display         (Gemini Flash / Pro)
-
-  Gemini Flash 3.6
-  • Rewrites calendar events in friendly text
-  • Generates weather-accurate scene prompts
-  • Scans calendar for important countdowns
+```bash
+--size 1072x1448     # a Paperwhite 3/4 panel
+--debug-regions      # outline the header, agenda, illustration and footer
+--date 2026-09-01    # a specific day
+--ics path.ics       # a real feed saved to a file
 ```
 
----
+Render today from the live sources instead:
 
-## Project structure
-
-```
-glanceboard/
-├── server/                     # Local Python server (FastAPI)
-│   ├── app.py                  # All backend logic + API endpoints
-│   ├── requirements.txt        # Python dependencies
-│   ├── requirements-email.txt  # Optional email widget dependencies
-│   └── data/                   # Runtime data (gitignored)
-│       ├── config.json          # Your settings (gitignored)
-│       ├── config.example.json  # Template config
-│       ├── gmail_credentials.json # Gmail OAuth credentials (gitignored, optional)
-│       ├── gmail_token.json     # Gmail OAuth token (gitignored, optional)
-│       └── images/              # Generated display images (gitignored)
-├── web/                        # Frontend (Vite SPA)
-│   ├── index.html              # Dashboard + landing page
-│   └── src/
-│       ├── main.js             # App logic
-│       ├── style.css           # Styles
-│       ├── config.js           # Firebase config (gitignored, only for hosted version)
-│       └── config.example.js   # Template config
-├── functions/                  # Cloud Functions (for hosted version)
-│   ├── main.py                 # Backend logic (Firebase variant)
-│   └── requirements.txt        # Python dependencies
-├── firmware/                   # ESP32-S3 PhotoPainter docs
-│   └── README.md               # SD card & firmware setup
-├── pi/                         # Legacy Raspberry Pi scripts
-│   ├── LEGACY_PI_SETUP.md      # Pi setup guide
-│   ├── install.sh              # One-line installer
-│   └── display_update.py       # Display update script
-├── firestore.rules             # Firestore security rules (hosted version)
-├── storage.rules               # Storage security rules (hosted version)
-├── firebase.json               # Firebase config (hosted version)
-├── SELF_HOSTING.md             # Guide to running on your own server 24/7
-├── FIREBASE_DEPLOY.md          # Firebase deployment guide (hosted version)
-├── EMAIL_SETUP.md              # Optional email widget setup guide
-└── LICENSE                     # Apache 2.0 License
+```bash
+cp .env.example .env    # fill in GB_ICAL_URL, GB_LAT, GB_LON
+set -a; source .env; set +a
+.venv/bin/python -m glanceboard render --out out/board.png
 ```
 
----
+Run the tests:
 
-## Email widget (optional)
+```bash
+.venv/bin/python -m pytest tests -q
+```
 
-Glanceboard can optionally show a summary of your unread Gmail on the display. This requires setting up your own Google Cloud OAuth credentials — see **[EMAIL_SETUP.md](EMAIL_SETUP.md)** for step-by-step instructions.
+## Running the server
 
-The email widget:
-- Only reads subject lines and sender names (not email bodies)
-- Summarises them via Gemini into a short digest
-- Runs entirely on your own machine — no data leaves your server
-- Is completely optional — everything else works without it
+```bash
+python3 -m glanceboard token      # generate GB_DISPLAY_TOKEN
+python3 -m glanceboard serve
+```
 
----
+Three endpoints, all read-only:
 
-## Contributing
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /display` | token | The PNG. Sends an `ETag`; answers `304` if unchanged. |
+| `GET /display/check` | token | Current hash, plus `now_epoch` and `next_refresh_epoch`. |
+| `GET /healthz` | none | Liveness for the container healthcheck. |
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute and the Contributor License Agreement (CLA) process.
+There is no way to write configuration over HTTP, and no endpoint that can read
+a secret out to a client.
 
----
+The board is regenerated at each hour in `GB_SLOTS`, and once at startup if the
+stored board is not from today. An unchanged day keeps its existing PNG, so the
+hash — and therefore the device's decision not to redraw — stays stable.
 
-## Licensing & Disclaimer
+## Deploying on the Pi
 
-Copyright 2026 Google LLC
+```bash
+cp .env.example .env     # fill it in, including GB_DISPLAY_TOKEN
+docker compose up -d --build
+```
 
-All software is licensed under the Apache License, Version 2.0 (Apache 2.0); you may not use this file except in compliance with the Apache 2.0 license. You may obtain a copy of the Apache 2.0 license at: [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+The compose file deliberately publishes no ports. The container is reachable
+only from Caddy on the shared network:
 
-All other materials are licensed under the Creative Commons Attribution 4.0 International License (CC-BY). You may obtain a copy of the CC-BY license at: [https://creativecommons.org/licenses/by/4.0/legalcode](https://creativecommons.org/licenses/by/4.0/legalcode)
+```
+glanceboard.example.com {
+    reverse_proxy glanceboard:8000
+}
+```
 
-Unless required by applicable law or agreed to in writing, all software and materials distributed here under the Apache 2.0 or CC-BY licenses are distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the licenses for the specific language governing permissions and limitations under those licenses.
+Then put the hostname behind the Cloudflare Tunnel, and add a Cloudflare Access
+policy with a **service token** so the Kindle can authenticate without a
+browser. The device sends `CF-Access-Client-Id` and `CF-Access-Client-Secret`
+alongside its own bearer token.
 
-This is not an official Google product.
+Those are two independent checks on purpose. Access is the outer door; the
+bearer token is checked by this server whatever route the request arrived by, so
+a misconfigured Access policy, or someone on the LAN reaching the container
+directly, still gets a `401`.
 
----
+## Configuration
 
-Built with ❤️ by [Raph Dixon](https://raph.plus) using [Antigravity](https://antigravity.google/) and [Gemini Flash 3.6](https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash).
+Everything comes from the environment. Any variable `GB_X` can instead be given
+as `GB_X_FILE` pointing at a file, for Docker secrets.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GB_ICAL_URL` | — | Private iCal feed. Secret. |
+| `GB_TIMEZONE` | `Europe/Rome` | Used for the day boundary and the slots. |
+| `GB_LAT`, `GB_LON` | — | Weather location. Omit to skip weather. |
+| `GB_TEMP_UNIT` | `celsius` | `celsius` or `fahrenheit`. |
+| `GB_WIDTH`, `GB_HEIGHT` | `1236`, `1648` | Panel size. PW3/PW4: `1072`, `1448`. |
+| `GB_ART_FRACTION` | `0.30` | Share of the height reserved for the illustration. |
+| `GB_MAX_EVENTS` | `12` | Upper bound before the `+N altri` note. |
+| `GB_SLOTS` | `5,12,18` | Hours at which the board is regenerated. |
+| `GB_DISPLAY_TOKEN` | — | Required to serve. At least 24 characters. |
+| `GB_ALLOW_NO_TOKEN` | `0` | Local development escape hatch. |
+| `GB_BIND_HOST` | `127.0.0.1` | The image sets `0.0.0.0`; the port is not published. |
+| `GB_PORT` | `8000` | |
+| `GB_OUTPUT_DIR` | `./data` | PNG and state. `/data` in the container. |
+| `GB_FONT_DIR` | `./assets/fonts` | |
+| `GB_REQUEST_TIMEOUT` | `20` | Seconds, for both sources. |
+
+## Client data
+
+The calendar carries client information — addresses, notes, attendee emails.
+`parse_ical` keeps four fields per event (title, start, end, all-day) and
+discards the rest at the point of parsing, so nothing downstream can leak what
+it never received. `Board.to_dict()` is the shape a phase-2 model payload will
+take, and `tests/test_privacy.py` asserts that a feed full of client details
+produces a payload containing none of them.
+
+If you add a field to `Event`, you are moving that boundary. Do it deliberately.
+
+## Failure behaviour
+
+Neither source can take the board down. An unreachable calendar renders as
+*Calendario non raggiungibile*, a failed weather call as `—` and a footer note.
+The PNG is written atomically, so a device polling mid-render gets the previous
+board rather than half a file, and a render that raises leaves the last good
+PNG in place.
+
+## The Kindle
+
+See [kindle/README.md](kindle/README.md).
+
+## Licence
+
+Apache 2.0, inherited from the upstream project. The bundled
+[Inter](https://github.com/rsms/inter) typeface is under the SIL Open Font
+License; see `assets/fonts/OFL.txt`.

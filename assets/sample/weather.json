@@ -1,0 +1,15 @@
+{
+  "latitude": 45.46,
+  "longitude": 9.19,
+  "timezone": "Europe/Rome",
+  "daily_units": {
+    "temperature_2m_max": "°C",
+    "temperature_2m_min": "°C"
+  },
+  "daily": {
+    "time": ["2026-09-01"],
+    "temperature_2m_max": [28.4],
+    "temperature_2m_min": [17.9],
+    "weather_code": [3]
+  }
+}
