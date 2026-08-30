@@ -44,6 +44,10 @@ RETRY_SLEEP=600         # after a failed cycle
 WIFI_TIMEOUT=45         # seconds to wait for an address
 FULL_REFRESH_EVERY=6    # full panel flashes to clear e-ink ghosting
 MANAGE_WIFI=1           # turn the radio off between refreshes
+FAILS_BEFORE_NOTICE=3   # consecutive failures before the panel says so
+# Env-overridable: dedicated mode passes FRONT_LIGHT=0, and the conf file,
+# sourced below, still has the last word.
+FRONT_LIGHT="${FRONT_LIGHT:--1}"   # 0 turns the front light off; -1 leaves it alone
 LOG_MAX_BYTES=131072
 
 # shellcheck source=/dev/null
@@ -157,6 +161,32 @@ json_field() {
 }
 
 # ─── Display ─────────────────────────────────────────────────────
+
+set_front_light() {
+    # An e-ink board needs no backlight, and in dedicated mode nothing else
+    # will ever turn it off.
+    [ "$FRONT_LIGHT" -ge 0 ] 2>/dev/null || return 0
+    lipc-set-prop com.lab126.powerd flIntensity "$FRONT_LIGHT" 2>/dev/null
+    return 0
+}
+
+show_failure_notice() {
+    # In dedicated mode the panel is the only output there is. A loop that has
+    # been failing for hours must say so, rather than leave yesterday's board up
+    # looking perfectly healthy.
+    eips -c 2>/dev/null
+    eips 0 2 "Glanceboard: aggiornamento non riuscito" 2>/dev/null
+    eips 0 4 "Ultime righe del log:" 2>/dev/null
+    row=6
+    tail -n 8 "$LOG_FILE" 2>/dev/null | cut -c1-72 | (
+        row=6
+        while read -r line; do
+            eips 0 "$row" "$line" 2>/dev/null
+            row=$((row + 1))
+        done
+    )
+    return 0
+}
 
 is_png() {
     [ -s "$1" ] || return 1
@@ -316,14 +346,21 @@ if [ "$ONCE" = "1" ]; then
 fi
 
 log "glanceboard-dash starting against $BASE_URL"
+set_front_light
 
+FAILURES=0
 while true; do
     rotate_log
     if cycle; then
+        FAILURES=0
         suspend_for "$NEXT_SLEEP"
     else
         wifi_off
-        log "cycle failed; retrying in ${RETRY_SLEEP}s"
+        FAILURES=$((FAILURES + 1))
+        log "cycle failed ($FAILURES consecutive); retrying in ${RETRY_SLEEP}s"
+        if [ "$FAILURES" -eq "$FAILS_BEFORE_NOTICE" ]; then
+            show_failure_notice
+        fi
         suspend_for "$RETRY_SLEEP"
     fi
 done

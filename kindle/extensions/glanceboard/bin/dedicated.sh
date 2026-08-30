@@ -28,5 +28,9 @@ sleep 5
 initctl stop framework 2>/dev/null
 initctl stop powerd 2>/dev/null
 
-nohup sh /mnt/us/glanceboard/glanceboard-dash.sh >> "$LOG" 2>&1 &
+# No reader underneath means no airplane icon, no touch repainting the board,
+# and no power manager dimming it — the three things that make "reader running"
+# mode a compromise. The front light goes off too: an e-ink board does not need
+# one, and with powerd stopped nothing else would ever turn it off.
+FRONT_LIGHT=0 nohup sh /mnt/us/glanceboard/glanceboard-dash.sh >> "$LOG" 2>&1 &
 echo $! > "$PIDFILE"

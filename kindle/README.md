@@ -63,16 +63,26 @@ alone, so a failed attempt costs nothing. If the screen stays blank, the log is
 one entry away — `is not a PNG` usually means the server returned an error page
 instead of an image, which points at the token or the Access policy.
 
-*Avvia ciclo* runs the refresh loop with the reader left alone. It suppresses
-the screensaver, which is the thing that would otherwise paint over the board,
-and the device still suspends between refreshes — a short press of the power
-button wakes it and the reader is there as usual. *Ferma ciclo* undoes it.
+*Avvia ciclo* runs the refresh loop with the reader left alone. Use it to prove
+the loop works, not as the end state: the reader is alive underneath the board,
+and it shows. The airplane icon appears whenever the loop turns the radio off
+between refreshes, the power manager still dims the front light, and a stray
+touch brings the home screen back over the board. All three are the framework
+doing its job. *Ferma ciclo* undoes it.
 
-*Modalita dedicata* is the end state: it stops the framework, so nothing can
-repaint the panel and the battery lasts longer. It is a one-way door on a device
-without SSH — stopping the framework also stops KUAL, so afterwards the only way
-back to the reader is holding the power button for about twenty seconds. Use it
-once the loop has proven itself, not before.
+*Modalita dedicata* is the end state, and it removes all three at once by
+removing their cause: the framework stops, so nothing repaints the panel, the
+front light goes off — an e-ink board does not need one — and the battery lasts
+considerably longer.
+
+It is a one-way door on a device without SSH: stopping the framework also stops
+KUAL, so the way back to the reader is holding the power button for about twenty
+seconds. That exit always works, because nothing here starts at boot: a restart
+always lands you back in the reader.
+
+If a cycle fails three times in a row, the panel says so and shows the tail of
+the log. Without that, a loop that has been broken since Tuesday looks exactly
+like a board that has nothing new to show.
 
 ## Run it at boot
 

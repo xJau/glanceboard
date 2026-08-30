@@ -169,6 +169,30 @@ echo "spazzatura" > "$WORK/state/refresh_count"
 run "$WORK/conf" --once
 check "contatore corrotto: il ciclo regge" "$?" "0"
 
+# 9 — after repeated failures the panel must say so, not keep yesterday's board
+NOTICE_WORK="$WORK/notice"
+mkdir -p "$NOTICE_WORK"
+cat > "$WORK/conf-notice" <<EOF
+BASE_URL="http://127.0.0.1:8199"
+DISPLAY_TOKEN="$TOKEN"
+STATE_DIR="$NOTICE_WORK"
+LOG_FILE="$WORK/notice.log"
+WIFI_TIMEOUT=1
+MIN_SLEEP=1
+RETRY_SLEEP=1
+FAILS_BEFORE_NOTICE=2
+EOF
+rm -f "$WORK/eips.log"
+GLANCEBOARD_CONF="$WORK/conf-notice" PATH="$WORK/bin:$PATH" KT="$WORK" \
+    sh "$REPO/kindle/glanceboard-dash.sh" >/dev/null 2>&1 &
+LOOP_PID=$!
+disown "$LOOP_PID" 2>/dev/null || true
+sleep 7
+kill "$LOOP_PID" 2>/dev/null
+pkill -f "glanceboard-dash.sh" 2>/dev/null
+check "fallimenti ripetuti: il pannello lo dice" \
+    "$([ "$(grep -c 'eips 0' "$WORK/eips.log" 2>/dev/null || echo 0)" -gt 0 ] && echo si || echo no)" "si"
+
 echo
 echo "passati: $PASS   falliti: $FAIL"
 [ "$FAIL" -eq 0 ]
