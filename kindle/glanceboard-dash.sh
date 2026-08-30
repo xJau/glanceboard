@@ -228,9 +228,13 @@ enter_dedicated_mode() {
     FORCE_DRAW=1
     draw
     sleep "$UI_SETTLE"
-    FORCE_DRAW=1
-    draw
+
+    # The second pass deliberately does NOT clear first. If eips were to fail
+    # after a clear, the panel would be left white — which is the one outcome
+    # worse than a stale board, and exactly what a clear-then-fail looks like.
     FORCE_DRAW=0
+    draw
+    log "panel state after dedicated handover: $(ps 2>/dev/null | grep -v grep | grep -c cvm) reader processes"
 
     # The radio is switched through com.lab126.cmd, which *is* the framework.
     # With it gone the calls go nowhere, and the loop would spend forty-five
@@ -275,7 +279,9 @@ draw() {
     esac
     count=$((count + 1))
 
+    full=no
     if [ "$count" -ge "$FULL_REFRESH_EVERY" ] || [ "$FORCE_DRAW" = "1" ]; then
+        full=yes
         # A full flash every so often, and always on the first draw of a run:
         # whatever the reader left on the panel — a status bar, an airplane
         # icon, a book cover — survives a partial update as a ghost, and the
@@ -286,10 +292,16 @@ draw() {
     fi
     echo "$count" > "$COUNTER_FILE" 2>/dev/null
 
-    eips -g "$IMAGE_FILE" 2>/dev/null || {
-        log "ERROR: eips failed to draw $IMAGE_FILE"
+    eips -g "$IMAGE_FILE" 2>>"$LOG_FILE"
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        # The clear has already happened by now, so a failure here is exactly
+        # what a white panel looks like. Say so, loudly, in the one place that
+        # can be read on the device.
+        log "ERROR: eips -g exited $status — the panel was cleared and not drawn"
         return 1
-    }
+    fi
+    log "draw ok (full refresh: $full)"
     return 0
 }
 
