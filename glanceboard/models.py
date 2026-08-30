@@ -94,10 +94,17 @@ class Board:
         }
 
     def content_hash(self) -> str:
-        """Stable hash of the board's *content*.
+        """Stable hash of what the device would be looking at.
 
-        Excludes generated_at so that regenerating an unchanged day produces an
-        unchanged hash — that is what lets the Kindle skip a redraw.
+        Excludes generated_at, so regenerating an unchanged day produces an
+        unchanged hash — that is what lets the Kindle skip a redraw. Includes
+        the package version, because a redesigned board is a different thing to
+        look at even when the day's data has not moved.
         """
-        payload = json.dumps(self.to_dict(), sort_keys=True, ensure_ascii=False)
+        from . import __version__
+
+        payload = json.dumps(
+            {"renderer": __version__, "board": self.to_dict()},
+            sort_keys=True, ensure_ascii=False,
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]

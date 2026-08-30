@@ -164,3 +164,12 @@ def test_a_source_failure_never_logs_the_whole_response(settings, monkeypatch, c
 
     assert board.calendar_ok is False
     assert all(len(record.getMessage()) < 400 for record in caplog.records)
+
+
+def test_a_redesign_changes_the_hash_even_when_the_day_has_not(settings, sample_ics, monkeypatch):
+    """Otherwise a new layout reaches the device only when the calendar moves."""
+    board = build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics)
+    before = board.content_hash()
+
+    monkeypatch.setattr("glanceboard.__version__", "99.0.0")
+    assert board.content_hash() != before

@@ -132,9 +132,14 @@ Three endpoints, all read-only:
 There is no way to write configuration over HTTP, and no endpoint that can read
 a secret out to a client.
 
-The board is regenerated at each hour in `GB_SLOTS`, and once at startup if the
-stored board is not from today. An unchanged day keeps its existing PNG, so the
-hash — and therefore the device's decision not to redraw — stays stable.
+The board is regenerated at each hour in `GB_SLOTS`, and once on every startup —
+a restart usually means something changed. An unchanged day keeps its existing
+PNG, so the hash, and therefore the device's decision not to redraw, stays
+stable.
+
+The hash includes `glanceboard.__version__`. **Bump it whenever you change how
+the board looks**, or the redesign will reach the Kindle only when the calendar
+or the weather happens to move.
 
 ## Deploying on the Pi
 
