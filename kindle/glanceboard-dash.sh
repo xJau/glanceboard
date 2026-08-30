@@ -223,8 +223,14 @@ cycle() {
     local_hash=""
     [ -f "$HASH_FILE" ] && local_hash=$(cat "$HASH_FILE" 2>/dev/null)
 
-    if [ "$remote_hash" = "$local_hash" ] && [ -f "$IMAGE_FILE" ]; then
+    if [ "$remote_hash" = "$local_hash" ] && [ -f "$IMAGE_FILE" ] && [ "$FORCE_DRAW" = "0" ]; then
         log "unchanged ($remote_hash); not redrawing"
+    elif [ "$remote_hash" = "$local_hash" ] && [ -f "$IMAGE_FILE" ]; then
+        # The content has not changed, but what is on the panel is unknown —
+        # KUAL, the screensaver or a previous run may have painted over it.
+        # The hash tracks the board, not the screen.
+        log "unchanged ($remote_hash), but redrawing: panel state unknown"
+        draw && FORCE_DRAW=0
     else
         tmp="$IMAGE_FILE.part"
         if ! http_get "/display" "$tmp"; then
@@ -242,6 +248,7 @@ cycle() {
         mv "$tmp" "$IMAGE_FILE"
         if draw; then
             printf '%s' "$remote_hash" > "$HASH_FILE"
+            FORCE_DRAW=0
             log "drew board $remote_hash"
         else
             wifi_off
@@ -276,6 +283,10 @@ done
 
 die_if_unconfigured
 NEXT_SLEEP="$MIN_SLEEP"
+
+# Draw on the first pass whatever the hash says: at startup nothing is known
+# about what is currently on the panel.
+FORCE_DRAW=1
 
 if [ "$ONCE" = "1" ]; then
     # One cycle, no suspend: this is what a KUAL menu entry runs, and what you
