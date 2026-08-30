@@ -75,6 +75,12 @@ removing their cause: the framework stops, so nothing repaints the panel, the
 front light goes off — an e-ink board does not need one — and the battery lasts
 considerably longer.
 
+Both the framework and `powerd` are stopped: `powerd` is what paints the sleep
+screen, so leaving it running covered the board with a battery gauge and a clock
+the first time the device suspended. Suspending needs nothing from it — the loop
+writes to the RTC and `/sys/power/state` itself — and the front light is set
+before it goes.
+
 The menu entry does not stop anything itself. It starts the loop, detached, and
 the loop stops the framework once it has a board on the panel — so a device that
 cannot reach the server keeps its reader instead of being left blank, and the

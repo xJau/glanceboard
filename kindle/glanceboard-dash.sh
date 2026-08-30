@@ -181,14 +181,21 @@ enter_dedicated_mode() {
     # running and no way in. And it happened before the first fetch, so a
     # failure at that point took the reader away and gave nothing back.
     #
-    # By the time this runs, the loop is detached and a board is drawn. powerd
-    # is deliberately left alone: it owns the front light and the wake path.
+    # By the time this runs, the loop is detached and a board is drawn.
+    #
+    # powerd goes too. Leaving it running looked like the careful choice — it
+    # owns the front light — but powerd is what paints the sleep screen, so the
+    # first time the device suspended it covered the board with a battery gauge
+    # and a clock. The front light is therefore set first, while there is still
+    # something listening, and suspending needs nothing from powerd: the loop
+    # writes to the RTC and /sys/power/state itself.
     [ "$DEDICATED" = "1" ] || return 0
     log "entering dedicated mode: stopping the reader UI"
-    initctl stop framework 2>/dev/null
-    DEDICATED=done
-    sleep 2
     set_front_light
+    initctl stop framework 2>/dev/null
+    sleep 1
+    initctl stop powerd 2>/dev/null
+    DEDICATED=done
     return 0
 }
 
@@ -381,6 +388,10 @@ while true; do
     if cycle; then
         FAILURES=0
         suspend_for "$NEXT_SLEEP"
+        # Whatever happened while suspended, the panel is not ours to assume.
+        # Redrawing on every wake costs one full flash a few times a day and
+        # buys a screen that always shows the board.
+        FORCE_DRAW=1
     else
         wifi_off
         FAILURES=$((FAILURES + 1))

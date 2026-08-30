@@ -48,6 +48,7 @@ EOF
 cat > "$WORK/bin/lipc-set-prop" <<'EOF'
 #!/bin/sh
 echo "lipc-set-prop $*" >> "$KT/lipc.log"
+echo "lipc-set-prop $*" >> "$KT/calls.log"
 EOF
 cat > "$WORK/bin/lipc-get-prop" <<'EOF'
 #!/bin/sh
@@ -180,9 +181,15 @@ check "contatore corrotto: il ciclo regge" "$?" "0"
 
 # 9 — dedicated mode must not take the reader away before there is a board
 rm -f "$WORK/initctl.log" "$WORK/calls.log" "$WORK/eips.log"
-run "$WORK/conf" --once --dedicated
+FRONT_LIGHT=0 GLANCEBOARD_CONF="$WORK/conf" PATH="$WORK/bin:$PATH" KT="$WORK" \
+    sh "$REPO/kindle/glanceboard-dash.sh" --once --dedicated >/dev/null 2>&1
 check "dedicata: ferma il lettore" \
     "$(grep -c 'stop framework' "$WORK/initctl.log" 2>/dev/null || echo 0)" "1"
+check "dedicata: ferma anche powerd (disegna la schermata di sonno)" \
+    "$(grep -c 'stop powerd' "$WORK/initctl.log" 2>/dev/null || echo 0)" "1"
+check "dedicata: la luce e' impostata prima di fermare powerd" \
+    "$([ "$(grep -n 'flIntensity' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
+        -lt "$(grep -n 'stop powerd' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
 check "dedicata: solo dopo aver disegnato" \
     "$([ "$(grep -n 'eips -g' "$WORK/calls.log" | head -1 | cut -d: -f1)" \
         -lt "$(grep -n 'stop framework' "$WORK/calls.log" | head -1 | cut -d: -f1)" ] && echo si || echo no)" "si"
