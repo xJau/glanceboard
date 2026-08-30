@@ -209,3 +209,38 @@ def _to_png(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def test_every_weather_label_fits_its_card_without_shrinking():
+    """A clipped or shrunk condition reads worse than a plainer word that fits."""
+    from glanceboard.render.layout import Layout
+    from glanceboard.render.theme import REGULAR
+    from glanceboard.weather import WMO_CODES
+
+    layout = Layout(1448, 1072)
+    fonts = Fonts(FONT_DIR)
+    font = fonts.get(layout.size_condition, REGULAR)
+    draw = ImageDraw.Draw(Image.new("L", (1448, 1072)))
+
+    available = layout.weather.width - 2 * layout.plate_padding
+
+    too_wide = [label for label in set(WMO_CODES.values())
+                if draw.textlength(label, font=font) > available]
+    assert not too_wide, f"these labels do not fit the weather card: {too_wide}"
+
+
+@pytest.mark.parametrize("width,height", SIZES)
+def test_the_weather_block_never_outgrows_its_card(width, height):
+    """The longest label must not push `minima` out through the card's bottom."""
+    from glanceboard.render.board import _weather_metrics
+    from glanceboard.render.theme import Fonts as _Fonts
+    from glanceboard.weather import WMO_CODES
+
+    layout = Layout(width, height)
+    fonts = _Fonts(FONT_DIR)
+    draw = ImageDraw.Draw(Image.new("L", (width, height)))
+    area_height = layout.weather.height - 2 * layout.plate_padding
+
+    for label in sorted(set(WMO_CODES.values())):
+        _, block_height, _, _ = _weather_metrics(draw, layout, fonts, label)
+        assert block_height <= area_height, f"{label!r} overflows the weather card"

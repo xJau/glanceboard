@@ -32,35 +32,39 @@ log = logging.getLogger(__name__)
 API_URL = "https://api.open-meteo.com/v1/forecast"
 
 # WMO weather interpretation codes, Italian labels.
+#
+# Kept short on purpose: the weather card is a corner of a small panel, and a
+# label that has to be shrunk or clipped to fit reads worse than a plainer word
+# that fits at full size. tests/test_render.py measures every one of them.
 WMO_CODES: dict[int, str] = {
     0: "Sereno",
-    1: "Prevalentemente sereno",
-    2: "Parzialmente nuvoloso",
+    1: "Poco nuvoloso",
+    2: "Nuvoloso",
     3: "Coperto",
     45: "Nebbia",
-    48: "Nebbia con brina",
-    51: "Pioviggine leggera",
+    48: "Nebbia",
+    51: "Pioviggine",
     53: "Pioviggine",
-    55: "Pioviggine intensa",
+    55: "Pioviggine forte",
     56: "Pioviggine gelata",
-    57: "Pioviggine gelata intensa",
-    61: "Pioggia leggera",
+    57: "Pioviggine gelata",
+    61: "Pioggia debole",
     63: "Pioggia",
-    65: "Pioggia intensa",
+    65: "Pioggia forte",
     66: "Pioggia gelata",
-    67: "Pioggia gelata intensa",
-    71: "Neve leggera",
+    67: "Pioggia gelata",
+    71: "Neve debole",
     73: "Neve",
-    75: "Neve intensa",
-    77: "Granelli di neve",
-    80: "Rovesci leggeri",
+    75: "Neve forte",
+    77: "Nevischio",
+    80: "Rovesci",
     81: "Rovesci",
-    82: "Rovesci violenti",
+    82: "Rovesci forti",
     85: "Rovesci di neve",
-    86: "Rovesci di neve intensi",
+    86: "Rovesci di neve",
     95: "Temporale",
-    96: "Temporale con grandine",
-    99: "Temporale con grandine forte",
+    96: "Grandine",
+    99: "Grandine forte",
 }
 
 

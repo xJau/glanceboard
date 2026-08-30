@@ -312,40 +312,66 @@ def _draw_agenda_note(draw, layout: Layout, fonts: theme.Fonts, text: str, top: 
 
 # ─── Weather ────────────────────────────────────────────────────
 
+def _weather_metrics(draw, layout: Layout, fonts: theme.Fonts, condition: str):
+    """Icon size and total block height for the weather card.
+
+    The icon is derived from the room the two text lines leave rather than
+    fixed, so a short card cannot push *minima 20°* out through its bottom edge.
+    """
+    area = layout.weather.inset(layout.plate_padding)
+    condition_font = _fitted_font(draw, condition, fonts, layout.size_condition,
+                                  theme.REGULAR, area.width)
+    range_font = fonts.get(layout.size_range, theme.REGULAR)
+
+    condition_height = _text_height(draw, condition, condition_font)
+    range_height = _text_height(draw, "minima 0°", range_font)
+    text_block = (layout.line_spacing * 3 + condition_height + range_height)
+
+    icon_size = max(round(layout.icon_size * 0.5),
+                    min(layout.icon_size, area.height - text_block))
+    return icon_size, icon_size + text_block, condition_font, range_font
+
+
 def _draw_weather(draw, layout: Layout, fonts: theme.Fonts, board: Board) -> None:
+    """Icon and temperature on one line, the condition underneath.
+
+    The card is a narrow corner of the panel. Setting the condition beside the
+    icon left it about two hundred pixels, which is not enough for an honest
+    Italian label — *Pioviggine gelata* had to be clipped. Underneath, it has
+    the full width of the card.
+    """
     _plate(draw, layout, layout.weather)
     area = layout.weather.inset(layout.plate_padding)
 
-    code = board.weather.weather_code if board.weather else 3
     temp_font = fonts.get(layout.size_temp, theme.HEAVY)
-    condition_font = fonts.get(layout.size_condition, theme.REGULAR)
-    range_font = fonts.get(layout.size_range, theme.REGULAR)
-
     high = _format_temp(board.weather.temp_max if board.weather else None,
                         board.weather.unit_symbol if board.weather else "°C")
     condition = board.weather.condition if board.weather else WEATHER_ERROR_LABEL
+    code = board.weather.weather_code if board.weather else 3
 
-    text_width = max(draw.textlength(high, font=temp_font),
-                     draw.textlength(condition, font=condition_font))
-    group_width = min(area.width, layout.icon_size + layout.bullet_gap + text_width)
-    group_left = area.left + max(0, (area.width - round(group_width)) // 2)
+    icon_size, block_height, condition_font, range_font = _weather_metrics(
+        draw, layout, fonts, condition
+    )
+    top = area.top + max(0, (area.height - block_height) // 2)
 
-    icon_top = area.top + max(0, (area.height - layout.icon_size) // 2)
-    icons.draw_weather(draw, group_left, icon_top, layout.icon_size, code)
+    temp_height = _text_height(draw, high, temp_font)
+    row_width = icon_size + layout.bullet_gap + draw.textlength(high, font=temp_font)
+    icon_left = area.left + max(0, (area.width - round(row_width)) // 2)
 
-    text_left = group_left + layout.icon_size + layout.bullet_gap
-    draw.text((text_left, icon_top), high, font=temp_font, fill=theme.INK, anchor="lt")
+    icons.draw_weather(draw, icon_left, top, icon_size, code)
+    draw.text((icon_left + icon_size + layout.bullet_gap,
+               top + (icon_size - temp_height) // 2),
+              high, font=temp_font, fill=theme.INK, anchor="lt")
 
-    condition_y = icon_top + _text_height(draw, high, temp_font) + layout.line_spacing
-    condition = _shorten(draw, condition, condition_font, area.right - text_left)
-    draw.text((text_left, condition_y), condition, font=condition_font,
-              fill=theme.INK_SOFT, anchor="lt")
+    condition_y = top + icon_size + layout.line_spacing
+    draw.text((area.centre_x, condition_y), condition, font=condition_font,
+              fill=theme.INK_SOFT, anchor="mt")
 
     if board.weather and board.weather.temp_min is not None:
         low = _format_temp(board.weather.temp_min, board.weather.unit_symbol)
-        range_y = condition_y + _text_height(draw, condition, condition_font) + layout.line_spacing
-        draw.text((text_left, range_y), f"minima {low}", font=range_font,
-                  fill=theme.MUTED, anchor="lt")
+        condition_height = _text_height(draw, condition, condition_font)
+        draw.text((area.centre_x, condition_y + condition_height + layout.line_spacing),
+                  f"minima {low}", font=range_font, fill=theme.MUTED, anchor="mt")
 
 
 def _format_temp(value: float | None, unit_symbol: str) -> str:
