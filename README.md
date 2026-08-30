@@ -151,6 +151,9 @@ bearer token is checked by this server whatever route the request arrived by, so
 a misconfigured Access policy, or someone on the LAN reaching the container
 directly, still gets a `401`.
 
+Step by step, including the Access policy that has to use the **Service Auth**
+action rather than `Allow`: [docs/deploy.md](docs/deploy.md).
+
 ## Configuration
 
 Everything comes from the environment. Any variable `GB_X` can instead be given
