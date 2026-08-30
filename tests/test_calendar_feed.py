@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from glanceboard.calendar_feed import UNTITLED, parse_ical
 
 from .conftest import ROME, SAMPLE_DAY
@@ -62,3 +64,42 @@ def test_all_day_event_has_no_times(sample_ics):
 def test_event_without_a_summary_gets_a_placeholder():
     events = parse_ical(MINIMAL, SAMPLE_DAY, ROME)
     assert events[0].title == UNTITLED
+
+
+def test_a_sign_in_page_is_rejected_as_not_a_calendar(monkeypatch):
+    """A share link answers 200 with HTML. That must not reach the parser."""
+    import requests
+
+    from glanceboard import calendar_feed
+
+    class FakeResponse:
+        status_code = 200
+        headers = {"content-type": "text/html; charset=utf-8"}
+        content = b"<!doctype html><html><head><title>Sign in</title></head>" * 40
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: FakeResponse())
+
+    with pytest.raises(calendar_feed.NotACalendarError) as error:
+        calendar_feed.fetch_ical("https://example.invalid/share")
+
+    assert "basic.ics" in str(error.value), "the error should say how to fix it"
+
+
+def test_a_real_feed_is_accepted(monkeypatch, sample_ics):
+    import requests
+
+    from glanceboard import calendar_feed
+
+    class FakeResponse:
+        status_code = 200
+        headers = {"content-type": "text/calendar"}
+        content = sample_ics
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: FakeResponse())
+    assert calendar_feed.fetch_ical("https://example.invalid/private.ics") == sample_ics

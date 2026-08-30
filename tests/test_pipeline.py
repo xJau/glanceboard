@@ -145,3 +145,22 @@ def test_rotation_can_be_overridden_for_previewing(settings, sample_ics):
 
     with Image.open(path) as image:
         assert image.size == (settings.width, settings.height)
+
+
+def test_a_source_failure_never_logs_the_whole_response(settings, monkeypatch, caplog):
+    """A feed answering with a sign-in page must not put an HTML document in the log."""
+    monkeypatch.setenv("GB_ICAL_URL", "https://example.invalid/share")
+    settings = type(settings).from_env()
+
+    huge = "<html>" + "x" * 50_000 + "</html>"
+
+    def explode(*args, **kwargs):
+        raise ValueError(f"Content line could not be parsed into parts: {huge!r}")
+
+    monkeypatch.setattr("glanceboard.calendar_feed.fetch_ical", explode)
+
+    with caplog.at_level("WARNING"):
+        board = build_board(settings, day=SAMPLE_DAY)
+
+    assert board.calendar_ok is False
+    assert all(len(record.getMessage()) < 400 for record in caplog.records)

@@ -163,14 +163,21 @@ def _schedule(settings: Settings, holder: dict) -> None:
 
     # A container that has just started, or one that was down over a slot,
     # should not wait until tomorrow morning to have something to show.
-    threading.Thread(target=_generate_if_stale, args=(settings,), daemon=True).start()
+    threading.Thread(target=_generate_at_startup, args=(settings,), daemon=True).start()
 
 
-def _generate_if_stale(settings: Settings) -> None:
-    state = load_state(settings)
-    today = datetime.now(settings.tzinfo).date().isoformat()
-    if settings.image_path.exists() and state.get("day") == today:
-        return
+def _generate_at_startup(settings: Settings) -> None:
+    """Always rebuild the board on startup, even if today's already exists.
+
+    A restart is usually a restart *because something changed* — a new calendar
+    URL, a moved location, a different panel. Skipping the fetch when a board
+    for today is already on disk saves two HTTP requests and silently serves
+    the old configuration's board until midnight.
+
+    The generation is not forced: it fetches, hashes, and leaves the existing
+    PNG untouched if the content really is the same, so the device's decision
+    not to redraw stays correct.
+    """
     _safe_generate(settings)
 
 

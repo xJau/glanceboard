@@ -38,16 +38,39 @@ log = logging.getLogger(__name__)
 _WHITESPACE = re.compile(r"\s+")
 UNTITLED = "(senza titolo)"
 
+#: How much of the body to inspect when deciding whether it is a calendar at all.
+_SNIFF_BYTES = 2048
+
+
+class NotACalendarError(RuntimeError):
+    """The URL answered, but with something that is not an iCalendar feed."""
+
 
 def fetch_ical(url: str, timeout: int = 20) -> bytes:
-    """Download the raw .ics body. Raises requests.RequestException on failure."""
+    """Download the raw .ics body.
+
+    Raises requests.RequestException on a transport failure, and
+    NotACalendarError when the server answers with something that is not a
+    calendar — which in practice means a sign-in page, because the URL is a
+    share link rather than the feed's own secret address.
+    """
     response = requests.get(
         url,
         timeout=timeout,
         headers={"User-Agent": "glanceboard-kindle/0.1"},
     )
     response.raise_for_status()
-    return response.content
+
+    body = response.content
+    if b"BEGIN:VCALENDAR" not in body[:_SNIFF_BYTES]:
+        content_type = response.headers.get("content-type", "unknown")
+        raise NotACalendarError(
+            f"the feed returned {content_type} rather than an iCalendar "
+            f"({len(body)} bytes, no BEGIN:VCALENDAR). If this is Google "
+            "Calendar, use the secret address in iCal format — the long URL "
+            "ending in /basic.ics — not a share or browser link."
+        )
+    return body
 
 
 def parse_ical(raw: bytes, day: date, tz: ZoneInfo) -> tuple[Event, ...]:

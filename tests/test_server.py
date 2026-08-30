@@ -123,3 +123,31 @@ def test_there_is_no_configuration_endpoint(client):
 
 def test_configuration_cannot_be_written_over_http(client):
     assert client.post("/api/config", json={"ical_url": "x"}).status_code in (404, 405)
+
+
+# ─── Startup ────────────────────────────────────────────────────
+
+def test_startup_regenerates_even_when_todays_board_exists(settings, monkeypatch):
+    """A restart usually means the configuration changed; refetch and find out."""
+    from glanceboard import server
+    from glanceboard.pipeline import _write_state
+
+    settings.output_dir.mkdir(parents=True, exist_ok=True)
+    settings.image_path.write_bytes(b"not really a png")
+    _write_state(settings, {"hash": "old", "day": "2026-08-30"})
+
+    calls = []
+    monkeypatch.setattr(server, "generate", lambda s: calls.append(s))
+
+    server._generate_at_startup(settings)
+    assert calls, "startup skipped the regeneration"
+
+
+def test_a_failing_generation_does_not_take_the_scheduler_down(settings, monkeypatch):
+    from glanceboard import server
+
+    def explode(_settings):
+        raise RuntimeError("calendar exploded")
+
+    monkeypatch.setattr(server, "generate", explode)
+    server._safe_generate(settings)  # must not raise

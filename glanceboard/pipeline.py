@@ -34,6 +34,16 @@ from .render import render_board
 
 log = logging.getLogger(__name__)
 
+#: Parser errors quote the input they choked on. A feed that answers with a
+#: sign-in page would otherwise put a whole HTML document — and whatever it
+#: happens to contain — into the log.
+MAX_LOGGED_ERROR = 200
+
+
+def _brief(exc: Exception) -> str:
+    text = " ".join(str(exc).split())
+    return text if len(text) <= MAX_LOGGED_ERROR else text[:MAX_LOGGED_ERROR] + " […]"
+
 
 def build_board(
     settings: Settings,
@@ -57,7 +67,7 @@ def build_board(
         try:
             events = calendar_feed.parse_ical(ical_bytes, day, settings.tzinfo)
         except Exception as exc:  # malformed feed
-            log.warning("Could not parse the supplied iCal data: %s", exc)
+            log.warning("Could not parse the supplied iCal data: %s", _brief(exc))
             calendar_ok = False
     elif settings.ical_url:
         try:
@@ -65,7 +75,7 @@ def build_board(
                 settings.ical_url, day, settings.tzinfo, timeout=settings.request_timeout
             )
         except Exception as exc:
-            log.warning("Calendar unavailable: %s", exc)
+            log.warning("Calendar unavailable: %s", _brief(exc))
             calendar_ok = False
     else:
         log.warning("No GB_ICAL_URL configured; rendering an empty agenda")
@@ -87,7 +97,7 @@ def build_board(
             )
             weather_ok = weather is not None
         except Exception as exc:
-            log.warning("Weather unavailable: %s", exc)
+            log.warning("Weather unavailable: %s", _brief(exc))
             weather_ok = False
     else:
         weather_ok = False
