@@ -35,8 +35,26 @@ docker compose exec glanceboard \
 
 `compose.yaml` publishes no ports on purpose. If Caddy runs in a container, put
 both on the same network (`edge` in the file — mark it `external: true` if Caddy
-already owns it). If Caddy runs on the host instead, uncomment the
-`127.0.0.1:8000:8000` mapping, which keeps the port off the LAN.
+already owns it). If the tunnel talks straight to localhost instead — no Caddy
+in the path — add a `compose.override.yaml` next to it:
+
+```yaml
+services:
+  glanceboard:
+    ports:
+      - "127.0.0.1:8000:8000"
+```
+
+The loopback prefix matters: without it the board is reachable from anything on
+the LAN, tunnel or no tunnel.
+
+The rendered board lives in a named volume, not in the working directory,
+because the container runs as an unprivileged user and a bind-mounted host
+directory is created root-owned. To look at the current PNG:
+
+```bash
+docker compose cp glanceboard:/data/board.png ./board.png
+```
 
 ## 3. Caddy
 

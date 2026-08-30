@@ -5,8 +5,13 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      # Rendered PNG and state. Survives rebuilds; nothing secret lives here.
-      - ./data:/data
+      # Rendered PNG and state. A named volume rather than a bind mount: the
+      # container runs as an unprivileged user, and a bind-mounted host
+      # directory is created root-owned, which the container cannot write to.
+      # Named volumes inherit the ownership /data has in the image.
+      # To pull the current board out:
+      #   docker compose cp glanceboard:/data/board.png ./board.png
+      - board-data:/data
     networks:
       - edge
     # Deliberately no `ports:` mapping. The board is reached through Caddy on
@@ -15,6 +20,9 @@ services:
     # keep the 127.0.0.1 prefix so the port is not exposed to the network:
     # ports:
     #   - "127.0.0.1:8000:8000"
+
+volumes:
+  board-data:
 
 networks:
   edge:
