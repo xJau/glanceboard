@@ -48,6 +48,7 @@ FAILS_BEFORE_NOTICE=3   # consecutive failures before the panel says so
 DEDICATED="${DEDICATED:-0}"  # 1: stop the reader UI, but only once a board is up
 UI_STOP_TIMEOUT=25      # seconds to wait for the reader UI to actually exit
 UI_SETTLE=4             # seconds to let the panel settle afterwards
+RADIO_RETRY_SLEEP=5     # pause after nudging the radio, before retrying
 # Env-overridable: dedicated mode passes FRONT_LIGHT=0, and the conf file,
 # sourced below, still has the last word.
 FRONT_LIGHT="${FRONT_LIGHT:--1}"   # 0 turns the front light off; -1 leaves it alone
@@ -173,24 +174,6 @@ set_front_light() {
     return 0
 }
 
-wait_for_ui_to_stop() {
-    # The framework does not die at once: on the way out it repaints the status
-    # bar, then the home screen, then a blank home — several seconds of it. A
-    # redraw issued in the middle of that gets partly painted over, which is how
-    # a board ended up with a white band where the status bar had been.
-    #
-    # Wait for its process to actually be gone, then let the panel settle.
-    waited=0
-    while [ "$waited" -lt "$UI_STOP_TIMEOUT" ]; do
-        ps 2>/dev/null | grep -v grep | grep -q "cvm" || break
-        sleep 1
-        waited=$((waited + 1))
-    done
-    log "reader UI gone after ${waited}s"
-    sleep "$UI_SETTLE"
-    return 0
-}
-
 enter_dedicated_mode() {
     # Stop the reader UI — from here, and only once a board is on the panel.
     #
@@ -228,24 +211,24 @@ enter_dedicated_mode() {
 }
 
 show_failure_notice() {
-    # In dedicated mode the panel is the only output there is. A loop that has
-    # been failing for hours must say so, rather than leave yesterday's board up
-    # looking perfectly healthy.
-    eips -c 2>/dev/null
-    eips 0 2 "Glanceboard: aggiornamento non riuscito" 2>/dev/null
-    eips 0 4 "Ultime righe del log:" 2>/dev/null
-    row=6
-    tail -n 8 "$LOG_FILE" 2>/dev/null | cut -c1-72 | (
-        row=6
-        while read -r line; do
-            eips 0 "$row" "$line" 2>/dev/null
-            row=$((row + 1))
-        done
-    )
+    # Overlay, never clear.
+    #
+    # This used to wipe the panel and print the tail of the log on it. After
+    # half an hour of failed cycles the board was replaced by a white page with
+    # truncated text — losing the one useful thing on the screen in order to
+    # report that nothing new had arrived. A stale board with a line of
+    # explanation across the top is strictly better: the appointments are still
+    # readable, and the reason is right there.
+    reason=$(grep -E "ERROR|WARN" "$LOG_FILE" 2>/dev/null | tail -n 1 | cut -c1-64)
+    eips 0 0 "Glanceboard: aggiornamento non riuscito $(date '+%H:%M')" 2>/dev/null
+    eips 0 1 "$reason" 2>/dev/null
     return 0
 }
 
 is_png() {
+    # A server behind Cloudflare Access answers a bad request with an HTML login
+    # page, and 200 OK. Checking the magic bytes is what keeps that off the
+    # panel.
     [ -s "$1" ] || return 1
     head -c 4 "$1" 2>/dev/null | grep -q 'PNG'
 }
@@ -344,6 +327,16 @@ cycle() {
     wifi_on
 
     check=$(http_get "/display/check" "-")
+    if [ -z "$check" ]; then
+        # With the reader stopped there is nothing left to reconnect the radio,
+        # and lipc talks to a framework that is no longer there. ifconfig is the
+        # one lever that does not need it. Harmless when the interface is
+        # already up, and worth one retry before writing the cycle off.
+        log "WARN: no answer from /display/check; bringing wlan0 up and retrying"
+        ifconfig wlan0 up 2>>"$LOG_FILE"
+        sleep "$RADIO_RETRY_SLEEP"
+        check=$(http_get "/display/check" "-")
+    fi
     if [ -z "$check" ]; then
         log "ERROR: /display/check returned nothing"
         wifi_off

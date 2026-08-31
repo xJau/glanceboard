@@ -226,6 +226,7 @@ LOG_FILE="$WORK/notice.log"
 WIFI_TIMEOUT=1
 MIN_SLEEP=1
 RETRY_SLEEP=1
+RADIO_RETRY_SLEEP=0
 FAILS_BEFORE_NOTICE=2
 EOF
 rm -f "$WORK/eips.log"
@@ -233,11 +234,13 @@ GLANCEBOARD_CONF="$WORK/conf-notice" PATH="$WORK/bin:$PATH" KT="$WORK" \
     sh "$REPO/kindle/glanceboard-dash.sh" >/dev/null 2>&1 &
 LOOP_PID=$!
 disown "$LOOP_PID" 2>/dev/null || true
-sleep 7
+sleep 10
 kill "$LOOP_PID" 2>/dev/null
 pkill -f "glanceboard-dash.sh" 2>/dev/null
 check "fallimenti ripetuti: il pannello lo dice" \
     "$([ "$(count 'eips 0' "$WORK/eips.log")" -gt 0 ] && echo si || echo no)" "si"
+check "fallimenti ripetuti: non cancella la board" \
+    "$(count 'eips -c' "$WORK/eips.log")" "0"
 
 echo
 echo "passati: $PASS   falliti: $FAIL"

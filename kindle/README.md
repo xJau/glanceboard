@@ -119,8 +119,15 @@ back; only dedicated mode removes that.
 The charge LED on the bottom edge is hardware. Nothing on the device can turn
 it off.
 
-If a cycle fails three times in a row, the panel says so and shows the tail of
-the log. Without that, a loop that has been broken since Tuesday looks exactly
+If a cycle fails three times in a row, the panel says so — as two lines across
+the top, over the board that is already there. An earlier version cleared the
+panel and printed the log on it, which after half an hour of failures replaced
+the appointments with a white page: losing the only useful thing on the screen
+in order to report that nothing new had arrived.
+
+A cycle that gets no answer nudges `wlan0` up with `ifconfig` and retries once
+before giving up. With the reader stopped there is nothing left to reconnect the
+radio, and `lipc` talks to a framework that is no longer running. Without that, a loop that has been broken since Tuesday looks exactly
 like a board that has nothing new to show.
 
 ## Run it at boot
