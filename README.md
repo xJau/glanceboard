@@ -37,7 +37,8 @@ replaces everything else.
 | Display endpoint | Unauthenticated | Token required, checked by the server itself |
 | Removed | dashboard, Firebase functions, Gmail, widgets, characters | |
 
-Phase 1 — what is here — generates no images and calls no models.
+Phase 1 — what is here — generates no images and calls no models. It is running
+on a Paperwhite 4 as `v0.1.0`.
 
 ## The layout
 
@@ -95,7 +96,7 @@ That is the loop for iterating on the layout. Useful flags:
 ```bash
 --size 1648x1236     # a Paperwhite 5/6 panel
 --upright            # skip GB_ROTATE, easier to look at on screen
---debug-regions      # outline the header, agenda, illustration and footer
+--debug-regions      # outline the ribbon, agenda, illustration panel and weather card
 --date 2026-09-01    # a specific day
 --ics path.ics       # a real feed saved to a file
 ```
@@ -130,7 +131,10 @@ Three endpoints, all read-only:
 | `GET /healthz` | none | Liveness for the container healthcheck. |
 
 There is no way to write configuration over HTTP, and no endpoint that can read
-a secret out to a client.
+a secret out to a client. The token may travel in the query string, because
+BusyBox wget on an old Kindle cannot always set a header, so an access-log
+filter redacts it — otherwise every request the device made would write the
+credential into the container log in clear text.
 
 The board is regenerated at each hour in `GB_SLOTS`, and once on every startup —
 a restart usually means something changed. An unchanged day keeps its existing
@@ -215,7 +219,60 @@ PNG in place.
 
 ## The Kindle
 
-See [kindle/README.md](kindle/README.md).
+Driven from a KUAL menu, because this Paperwhite has no SSH. `kindle/install-to-kindle.sh`
+copies the loop and the menu onto the device over USB; nothing else is needed on
+it.
+
+| Entry | |
+|---|---|
+| **Un giro di prova** | one cycle, no suspend, reader untouched |
+| **Avvia cornice** | the frame proper |
+| **Mostra log** | the log, drawn on the panel — the only way to read it without a shell |
+| **Avvia col lettore acceso** | for debugging; a stray touch brings the home screen back |
+
+The loop asks `/display/check` first and downloads only when the hash has moved,
+draws with a single `eips -f -g`, and suspends until the next slot. It sleeps for
+the difference between two epoch values the server sends, so a Kindle clock —
+which runs in UTC and drifts while suspended — is never trusted for scheduling.
+
+Three rules the device side earned the hard way:
+
+- **The reader is stopped only once a board is on the panel**, and by the loop
+  itself rather than by the menu script that KUAL is hosting. Stopping it any
+  earlier took the interface away from a device that then had nothing to show.
+- **Nothing suspends without a wake alarm that has been read back.** Staying
+  awake costs battery; suspending with no alarm costs the whole dashboard until
+  someone holds the power button.
+- **A failure is reported over the board, never instead of it.** Yesterday's
+  appointments plus a line of explanation beat a white page with a log on it.
+
+Full details, including how to get the reader back: [kindle/README.md](kindle/README.md).
+
+## Testing
+
+```bash
+.venv/bin/python -m pytest        # 110 tests
+kindle/selftest.sh                # 31 checks against the device script
+```
+
+Neither touches the network.
+
+The Python tests cover recurrence expansion and timezone conversion, the privacy
+assertions, panel fit — at most 16 grays, every one a multiple of 17 — render
+determinism, that nothing is drawn into the reserved illustration panel, atomic
+writes, and every authentication path including the absence of a config
+endpoint.
+
+`kindle/selftest.sh` runs `glanceboard-dash.sh` for real against a server it
+starts itself, with `eips` and `lipc-*` replaced by recorders and fake sysfs
+files standing in for the wake alarm. It covers a first draw on an empty device,
+an unchanged board that must be redrawn anyway because the panel's state is
+unknown, a wrong token, an Access login page arriving where a PNG was expected,
+a panel that refuses to draw, the handover into the frame, and a device with no
+writable alarm.
+
+Every defect that reached the panel lived in that script, and none of them would
+have been caught by reading it.
 
 ## Licence
 
