@@ -227,6 +227,7 @@ WIFI_TIMEOUT=1
 MIN_SLEEP=1
 RETRY_SLEEP=1
 RADIO_RETRY_SLEEP=0
+SUSPEND_GRACE=0
 FAILS_BEFORE_NOTICE=2
 EOF
 rm -f "$WORK/eips.log"
@@ -241,6 +242,61 @@ check "fallimenti ripetuti: il pannello lo dice" \
     "$([ "$(count 'eips 0' "$WORK/eips.log")" -gt 0 ] && echo si || echo no)" "si"
 check "fallimenti ripetuti: non cancella la board" \
     "$(count 'eips -c' "$WORK/eips.log")" "0"
+
+# 11 — the wake alarm decides whether suspending is safe at all
+mkdir -p "$WORK/sys"
+: > "$WORK/sys/power_state"
+echo 0 > "$WORK/sys/wakeup_enable"
+cat > "$WORK/conf-rtc" <<EOF
+BASE_URL="http://127.0.0.1:$PORT"
+DISPLAY_TOKEN="$TOKEN"
+STATE_DIR="$WORK/state"
+LOG_FILE="$WORK/rtc.log"
+WIFI_TIMEOUT=1
+MIN_SLEEP=1
+MAX_SLEEP=5
+SUSPEND_GRACE=0
+RTC_PATHS="$WORK/sys/wakeup_enable"
+SYS_POWER_STATE="$WORK/sys/power_state"
+EOF
+GLANCEBOARD_CONF="$WORK/conf-rtc" PATH="$WORK/bin:$PATH" KT="$WORK" \
+    sh "$REPO/kindle/glanceboard-dash.sh" >/dev/null 2>&1 &
+RTC_PID=$!
+disown "$RTC_PID" 2>/dev/null || true
+sleep 6
+kill "$RTC_PID" 2>/dev/null
+pkill -f "glanceboard-dash.sh" 2>/dev/null
+check "sveglia: la durata viene scritta sull'RTC" \
+    "$([ "$(cat "$WORK/sys/wakeup_enable" 2>/dev/null)" != "0" ] && echo si || echo no)" "si"
+check "sveglia: solo dopo averla armata si sospende" \
+    "$(count 'mem' "$WORK/sys/power_state")" "1"
+
+# Without a writable alarm the device must stay awake: suspending with no way
+# back is indistinguishable from a crash on a frame hanging on a wall.
+: > "$WORK/sys/power_state"
+cat > "$WORK/conf-nortc" <<EOF
+BASE_URL="http://127.0.0.1:$PORT"
+DISPLAY_TOKEN="$TOKEN"
+STATE_DIR="$WORK/state"
+LOG_FILE="$WORK/nortc.log"
+WIFI_TIMEOUT=1
+MIN_SLEEP=1
+MAX_SLEEP=3
+SUSPEND_GRACE=0
+RTC_PATHS="$WORK/sys/does-not-exist"
+SYS_POWER_STATE="$WORK/sys/power_state"
+EOF
+GLANCEBOARD_CONF="$WORK/conf-nortc" PATH="$WORK/bin:$PATH" KT="$WORK" \
+    sh "$REPO/kindle/glanceboard-dash.sh" >/dev/null 2>&1 &
+NORTC_PID=$!
+disown "$NORTC_PID" 2>/dev/null || true
+sleep 6
+kill "$NORTC_PID" 2>/dev/null
+pkill -f "glanceboard-dash.sh" 2>/dev/null
+check "senza sveglia: non si sospende" \
+    "$(count 'mem' "$WORK/sys/power_state")" "0"
+check "senza sveglia: il log lo dice" \
+    "$([ "$(count 'no writable wake alarm' "$WORK/nortc.log")" -ge 1 ] && echo si || echo no)" "si"
 
 echo
 echo "passati: $PASS   falliti: $FAIL"

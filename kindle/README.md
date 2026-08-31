@@ -167,6 +167,20 @@ that refuses to draw, and a log that must not contain every line twice.
 Every bug that reached the panel lived in this script, and none of them would
 have been caught by reading it.
 
+## Waking up
+
+The wake alarm is written to `/sys/devices/platform/mxc_rtc.0/wakeup_enable`,
+the i.MX interface these devices actually have. The generic
+`/sys/class/rtc/*/wakealarm` path is tried after it, for hardware that has one.
+
+**Nothing suspends without an armed alarm.** The write is read back, and if no
+path accepted it the loop stays awake and says so in the log. A suspend with no
+alarm is indefinite: on a frame hanging on a wall it is indistinguishable from a
+crash, and the way out is holding the power button.
+
+If the log says `no writable wake alarm found`, the device is running but
+burning battery. That is the intended trade.
+
 ## Battery
 
 The loop suspends to RAM between refreshes (`/sys/class/rtc/rtc1/wakealarm`

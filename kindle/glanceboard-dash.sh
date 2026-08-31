@@ -49,6 +49,12 @@ DEDICATED="${DEDICATED:-0}"  # 1: stop the reader UI, but only once a board is u
 UI_STOP_TIMEOUT=25      # seconds to wait for the reader UI to actually exit
 UI_SETTLE=4             # seconds to let the panel settle afterwards
 RADIO_RETRY_SLEEP=5     # pause after nudging the radio, before retrying
+SUSPEND_GRACE=10        # seconds before suspending, so the loop can be killed
+# Where the wake alarm lives. The Kindle's i.MX interface comes first: the
+# generic /sys/class/rtc path does not exist on this hardware, and writing to a
+# path that is not there fails silently.
+RTC_PATHS="/sys/devices/platform/mxc_rtc.0/wakeup_enable /sys/class/rtc/rtc1/wakealarm /sys/class/rtc/rtc0/wakealarm"
+SYS_POWER_STATE=/sys/power/state
 # Env-overridable: dedicated mode passes FRONT_LIGHT=0, and the conf file,
 # sourced below, still has the last word.
 FRONT_LIGHT="${FRONT_LIGHT:--1}"   # 0 turns the front light off; -1 leaves it alone
@@ -299,26 +305,66 @@ stop_reader_ui() {
 
 # ─── Sleep ───────────────────────────────────────────────────────
 
+arm_wake_alarm() {
+    # Returns 0 only when an alarm is genuinely set. Nothing suspends this
+    # device unless that is true: a suspend without a wake alarm is indefinite,
+    # and on a frame hanging on a wall it looks exactly like a crash.
+    seconds="$1"
+    for rtc in $RTC_PATHS; do
+        [ -w "$rtc" ] || continue
+        case "$rtc" in
+            *wakeup_enable)
+                # i.MX: seconds from now, and only when nothing else has armed it.
+                current=$(cat "$rtc" 2>/dev/null)
+                case "$current" in
+                    ''|*[!0-9]*) current=0 ;;
+                esac
+                [ "$current" -ne 0 ] && log "wake alarm already armed at $rtc ($current)" && return 0
+                printf '%s' "$seconds" > "$rtc" 2>>"$LOG_FILE" || continue
+                ;;
+            *wakealarm)
+                # Generic: clear, then an absolute-or-relative +seconds.
+                echo 0 > "$rtc" 2>/dev/null
+                printf '+%s' "$seconds" > "$rtc" 2>>"$LOG_FILE" || continue
+                ;;
+        esac
+        armed=$(cat "$rtc" 2>/dev/null)
+        if [ -n "$armed" ] && [ "$armed" != "0" ]; then
+            log "wake alarm armed via $rtc (${seconds}s)"
+            return 0
+        fi
+        log "WARN: writing to $rtc did not take"
+    done
+    return 1
+}
+
 suspend_for() {
     seconds="$1"
+    [ "$seconds" -lt "$MIN_SLEEP" ] && seconds="$MIN_SLEEP"
+    [ "$seconds" -gt "$MAX_SLEEP" ] && seconds="$MAX_SLEEP"
+
     # Draw immediately before sleeping. Whatever paints a sleep screen, the
     # board is the most recent thing on the panel when the device goes down.
     if [ -f "$IMAGE_FILE" ]; then
         eips -g "$IMAGE_FILE" 2>/dev/null
     fi
-    [ "$seconds" -lt "$MIN_SLEEP" ] && seconds="$MIN_SLEEP"
-    [ "$seconds" -gt "$MAX_SLEEP" ] && seconds="$MAX_SLEEP"
-    log "sleeping ${seconds}s"
 
-    if [ -w /sys/class/rtc/rtc1/wakealarm ]; then
-        echo 0 > /sys/class/rtc/rtc1/wakealarm 2>/dev/null
-        if echo "+$seconds" > /sys/class/rtc/rtc1/wakealarm 2>/dev/null; then
-            # Suspend to RAM. If the write fails the shell simply sleeps, which
-            # costs battery but never leaves the device awake with a stale board.
-            echo mem > /sys/power/state 2>/dev/null && return 0
-        fi
+    # A moment to breathe, so the loop can be stopped by hand before it goes
+    # under.
+    sleep "$SUSPEND_GRACE"
+
+    if arm_wake_alarm "$seconds"; then
+        log "suspending for ${seconds}s"
+        echo mem > "$SYS_POWER_STATE" 2>>"$LOG_FILE" && return 0
+        log "WARN: $SYS_POWER_STATE refused the write; staying awake"
+    else
+        log "WARN: no writable wake alarm found; staying awake instead of suspending"
     fi
+
+    # Staying awake costs battery. Suspending with no alarm costs the whole
+    # dashboard, until someone picks the device up and holds the power button.
     sleep "$seconds"
+    return 0
 }
 
 # ─── One cycle ───────────────────────────────────────────────────
