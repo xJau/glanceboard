@@ -180,6 +180,10 @@ set_front_light() {
     return 0
 }
 
+reader_running() {
+    ps 2>/dev/null | grep -v grep | grep -q "cvm"
+}
+
 enter_dedicated_mode() {
     # Stop the reader UI — from here, and only once a board is on the panel.
     #
@@ -190,8 +194,17 @@ enter_dedicated_mode() {
     # powerd is left running. It paints a sleep screen, which is dealt with by
     # drawing the board again immediately before suspending rather than by
     # killing the service that owns the front light and the wake path.
-    [ "$DEDICATED" = "1" ] || return 0
-    log "entering dedicated mode"
+    # First cycle: hand over. Later cycles: only if the reader came back, which
+    # the firmware can do on its own after a wake — and did, judging by a home
+    # screen appearing mid-refresh on a device that was supposed to be a frame.
+    case "$DEDICATED" in
+        1) log "entering dedicated mode" ;;
+        done)
+            reader_running || return 0
+            log "the reader UI came back; taking the panel again"
+            ;;
+        *) return 0 ;;
+    esac
     set_front_light
     stop_reader_ui
 

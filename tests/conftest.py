@@ -16,6 +16,14 @@ SAMPLE_DAY = date(2026, 9, 1)
 ROME = ZoneInfo("Europe/Rome")
 
 
+@pytest.fixture(autouse=True)
+def no_retry_backoff(monkeypatch):
+    """Sources are retried in production; tests must not sit through the waits."""
+    from glanceboard import pipeline
+
+    monkeypatch.setattr(pipeline, "RETRY_BACKOFF_SECONDS", 0)
+
+
 @pytest.fixture
 def sample_ics() -> bytes:
     return (SAMPLE_DIR / "day.ics").read_bytes()

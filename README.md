@@ -211,8 +211,12 @@ If you add a field to `Event`, you are moving that boundary. Do it deliberately.
 
 ## Failure behaviour
 
-Neither source can take the board down. An unreachable calendar renders as
-*Calendario non raggiungibile*, a failed weather call as `—` and a footer note.
+Neither source can take the board down. Each is tried three times with a short
+backoff before it is written off — Open-Meteo answered `503` on an ordinary
+afternoon, and without the retry a few seconds of outage cost the board its
+weather until the next slot, six hours later. An unreachable calendar then
+renders as *Calendario non raggiungibile*, a failed weather call as `—` and a
+footer note.
 The PNG is written atomically, so a device polling mid-render gets the previous
 board rather than half a file, and a render that raises leaves the last good
 PNG in place.

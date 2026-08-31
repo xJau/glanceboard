@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -33,6 +34,12 @@ from .models import Board
 from .render import render_board
 
 log = logging.getLogger(__name__)
+
+#: A source that fails once gets a second chance. Open-Meteo answered 503 on an
+#: ordinary afternoon and the board went without weather until the next slot,
+#: six hours later — an outage of seconds costing a whole afternoon.
+SOURCE_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 2
 
 #: Parser errors quote the input they choked on. A feed that answers with a
 #: sign-in page would otherwise put a whole HTML document — and whatever it
@@ -43,6 +50,26 @@ MAX_LOGGED_ERROR = 200
 def _brief(exc: Exception) -> str:
     text = " ".join(str(exc).split())
     return text if len(text) <= MAX_LOGGED_ERROR else text[:MAX_LOGGED_ERROR] + " […]"
+
+
+def _with_retries(what: str, call):
+    """Call `call`, retrying a couple of times before giving up.
+
+    Returns (result, ok). Never raises: a source that stays down is a flag on
+    the board, not an exception.
+    """
+    for attempt in range(1, SOURCE_ATTEMPTS + 1):
+        try:
+            return call(), True
+        except Exception as exc:
+            if attempt == SOURCE_ATTEMPTS:
+                log.warning("%s unavailable after %d attempts: %s",
+                            what, SOURCE_ATTEMPTS, _brief(exc))
+                return None, False
+            log.info("%s failed (attempt %d/%d): %s — retrying",
+                     what, attempt, SOURCE_ATTEMPTS, _brief(exc))
+            time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+    return None, False
 
 
 def build_board(
@@ -70,13 +97,13 @@ def build_board(
             log.warning("Could not parse the supplied iCal data: %s", _brief(exc))
             calendar_ok = False
     elif settings.ical_url:
-        try:
-            events = calendar_feed.events_for_day(
+        fetched, calendar_ok = _with_retries(
+            "Calendar",
+            lambda: calendar_feed.events_for_day(
                 settings.ical_url, day, settings.tzinfo, timeout=settings.request_timeout
-            )
-        except Exception as exc:
-            log.warning("Calendar unavailable: %s", _brief(exc))
-            calendar_ok = False
+            ),
+        )
+        events = fetched or ()
     else:
         log.warning("No GB_ICAL_URL configured; rendering an empty agenda")
 
@@ -86,19 +113,18 @@ def build_board(
         weather = weather_module.parse_weather(weather_payload, settings.temp_unit)
         weather_ok = weather is not None
     elif settings.latitude is not None and settings.longitude is not None:
-        try:
-            weather = weather_module.weather_for_day(
+        weather, weather_ok = _with_retries(
+            "Weather",
+            lambda: weather_module.weather_for_day(
                 settings.latitude,
                 settings.longitude,
                 day,
                 settings.timezone,
                 temp_unit=settings.temp_unit,
                 timeout=settings.request_timeout,
-            )
-            weather_ok = weather is not None
-        except Exception as exc:
-            log.warning("Weather unavailable: %s", _brief(exc))
-            weather_ok = False
+            ),
+        )
+        weather_ok = weather_ok and weather is not None
     else:
         weather_ok = False
 

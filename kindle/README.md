@@ -119,6 +119,10 @@ back; only dedicated mode removes that.
 The charge LED on the bottom edge is hardware. Nothing on the device can turn
 it off.
 
+If the reader UI comes back — the firmware can restart it on its own after a
+wake — the next cycle notices and takes the panel again. A home screen appearing
+mid-refresh on a device that is supposed to be a frame is what put this here.
+
 If a cycle fails three times in a row, the panel says so — as two lines across
 the top, over the board that is already there. An earlier version cleared the
 panel and printed the log on it, which after half an hour of failures replaced

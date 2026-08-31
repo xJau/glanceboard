@@ -173,3 +173,67 @@ def test_a_redesign_changes_the_hash_even_when_the_day_has_not(settings, sample_
 
     monkeypatch.setattr("glanceboard.__version__", "99.0.0")
     assert board.content_hash() != before
+
+
+def test_a_source_that_fails_once_is_retried(settings, monkeypatch, sample_weather):
+    """Open-Meteo answered 503 once and the board went six hours without weather."""
+    monkeypatch.setenv("GB_LAT", "45.46")
+    monkeypatch.setenv("GB_LON", "9.19")
+    settings = type(settings).from_env()
+    monkeypatch.setattr(pipeline, "RETRY_BACKOFF_SECONDS", 0)
+
+    attempts = []
+
+    def flaky(*args, **kwargs):
+        attempts.append(1)
+        if len(attempts) < 2:
+            raise requests.HTTPError("503 Service Unavailable")
+        return sample_weather
+
+    monkeypatch.setattr("glanceboard.weather.fetch_weather_payload", flaky)
+
+    board = build_board(settings, day=SAMPLE_DAY)
+    assert len(attempts) == 2
+    assert board.weather_ok is True
+    assert board.weather.temp_max == 28.4
+
+
+def test_a_source_that_stays_down_gives_up_and_degrades(settings, monkeypatch):
+    monkeypatch.setenv("GB_LAT", "45.46")
+    monkeypatch.setenv("GB_LON", "9.19")
+    settings = type(settings).from_env()
+    monkeypatch.setattr(pipeline, "RETRY_BACKOFF_SECONDS", 0)
+
+    attempts = []
+
+    def always_down(*args, **kwargs):
+        attempts.append(1)
+        raise requests.HTTPError("503 Service Unavailable")
+
+    monkeypatch.setattr("glanceboard.weather.fetch_weather_payload", always_down)
+
+    board = build_board(settings, day=SAMPLE_DAY)
+    assert len(attempts) == pipeline.SOURCE_ATTEMPTS
+    assert board.weather_ok is False
+    assert board.weather is None
+
+
+def test_the_calendar_is_retried_too(settings, monkeypatch, sample_ics):
+    monkeypatch.setenv("GB_ICAL_URL", "https://example.invalid/feed.ics")
+    settings = type(settings).from_env()
+    monkeypatch.setattr(pipeline, "RETRY_BACKOFF_SECONDS", 0)
+
+    attempts = []
+
+    def flaky(*args, **kwargs):
+        attempts.append(1)
+        if len(attempts) < 2:
+            raise requests.ConnectionError("connection reset")
+        return sample_ics
+
+    monkeypatch.setattr("glanceboard.calendar_feed.fetch_ical", flaky)
+
+    board = build_board(settings, day=SAMPLE_DAY)
+    assert len(attempts) == 2
+    assert board.calendar_ok is True
+    assert len(board.events) == 6
