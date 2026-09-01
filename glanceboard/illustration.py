@@ -133,7 +133,7 @@ def subject_side(
     photo: Path,
     api_key: str,
     cache_dir: Path,
-    model: str = "gemini-2.5-flash",
+    model: str = "gemini-flash-lite-latest",
     timeout: int = 30,
 ) -> str | None:
     """Which half of the photograph its subjects occupy, per the model.
@@ -143,6 +143,11 @@ def subject_side(
     once per photograph, not once per render.
 
     Never raises. A missing opinion is not a failure; the ink count decides.
+
+    The default is a `-latest` alias on purpose. A pinned version was the first
+    thing to break here — `gemini-2.5-flash` answers "no longer available to
+    new users" to a key issued this week — and for a one-word classification
+    the alias's drift matters far less than being locked out.
     """
     marker = Path(cache_dir) / f"{_photo_digest(photo)}.side"
     if marker.exists():

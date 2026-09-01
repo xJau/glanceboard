@@ -231,7 +231,7 @@ class Settings:
             photo_album_url=_env("GB_PHOTO_ALBUM_URL"),
             photo_sync=_env_bool("GB_PHOTO_SYNC", True),
             photo_limit=_env_int("GB_PHOTO_LIMIT", 60),
-            subject_model=_env("GB_SUBJECT_MODEL", "gemini-2.5-flash"),
+            subject_model=_env("GB_SUBJECT_MODEL", "gemini-flash-lite-latest"),
             adaptive_layout=_env_bool("GB_ADAPTIVE_LAYOUT", True),
             rotate=_env_rotation("GB_ROTATE", 90),
             allow_no_token=_env_bool("GB_ALLOW_NO_TOKEN", False),

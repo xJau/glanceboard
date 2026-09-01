@@ -268,7 +268,7 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_PHOTO_SYNC` | `1` | Stops the sync without forgetting the album. |
 | `GB_PHOTO_LIMIT` | `60` | How many photos to keep from the album. |
 | `GB_ADAPTIVE_LAYOUT` | `1` | Put the text on whichever side the picture leaves quiet. |
-| `GB_SUBJECT_MODEL` | `gemini-2.5-flash` | Asked where the subjects are. |
+| `GB_SUBJECT_MODEL` | `gemini-flash-lite-latest` | Asked where the subjects are. |
 | `GB_STYLE_PROMPT` | — | Overrides the built-in style instruction. |
 
 ## Client data
