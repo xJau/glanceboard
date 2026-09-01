@@ -46,13 +46,11 @@ _PHOTO_URL = re.compile(r'https://lh3\.googleusercontent\.com/[A-Za-z0-9_\-/.]+'
 #: prefix, which is a narrow enough filter to keep profile pictures out.
 _LOOKS_LIKE_A_PHOTO = re.compile(r'/pw/')
 
-BROWSER_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
-    ),
-    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
-}
+#: Say who we are. Claiming to be Chrome was the bug, not the fix: to a modern
+#: browser Google serves a 34KB JavaScript shell with no photo URLs in it, and
+#: to anything else the server-rendered page — 1.2MB, every photo listed. An
+#: honest user agent gets the page that can actually be read.
+REQUEST_HEADERS = {"User-Agent": "glanceboard-kindle/0.3 (e-ink photo frame)"}
 
 
 class AlbumError(RuntimeError):
@@ -89,7 +87,7 @@ def sync(
     all — the caller decides whether that matters, and here it never does.
     """
     try:
-        page = requests.get(album_url, headers=BROWSER_HEADERS, timeout=timeout)
+        page = requests.get(album_url, headers=REQUEST_HEADERS, timeout=timeout)
         page.raise_for_status()
     except requests.RequestException as exc:
         raise AlbumError(f"the album page could not be fetched: {exc}") from exc
@@ -152,7 +150,7 @@ def _name_for(url: str) -> str:
 
 
 def _download(url: str, target: Path, timeout: int) -> None:
-    response = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout, stream=True)
+    response = requests.get(url, headers=REQUEST_HEADERS, timeout=timeout, stream=True)
     response.raise_for_status()
 
     partial = target.with_suffix(".part")

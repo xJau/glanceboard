@@ -159,3 +159,13 @@ def test_a_long_link_with_no_photos_blames_the_sharing_instead(tmp_path, monkeyp
     with pytest.raises(album.AlbumError) as error:
         album.sync("https://photos.google.com/share/AF1Qip?key=x", tmp_path)
     assert "anyone with the link" in str(error.value)
+
+
+def test_the_request_does_not_pretend_to_be_a_browser():
+    """Claiming to be Chrome gets a JavaScript shell with no photos in it.
+    An honest user agent gets the server-rendered page — this cost an hour to
+    find, and a rewritten header would cost it again."""
+    agent = album.REQUEST_HEADERS["User-Agent"]
+    assert "glanceboard" in agent
+    for browser in ("Chrome", "Safari", "AppleWebKit", "Mozilla"):
+        assert browser not in agent
