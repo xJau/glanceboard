@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from ..models import Board, Event
 from . import icons, theme
@@ -38,6 +38,7 @@ EMPTY_LABEL = "Niente in programma.\nGiornata libera."
 CALENDAR_ERROR_LABEL = "Calendario non raggiungibile."
 WEATHER_ERROR_LABEL = "meteo non disponibile"
 ALL_DAY_LABEL = "tutto il giorno"
+ALL_DAY_DASH = "—"
 AGENDA_HEADING = "In programma oggi"
 SEPARATOR = "—"
 
@@ -51,6 +52,7 @@ def render_board(
     art_fraction: float = 0.38,
     debug_regions: bool = False,
     illustration: Image.Image | None = None,
+    art_wash: float = 0.72,
 ) -> Image.Image:
     """Render `board` and return a 16-level grayscale image.
 
@@ -64,11 +66,12 @@ def render_board(
     image = Image.new("L", (width, height), theme.PAPER)
     draw = ImageDraw.Draw(image)
 
+    if illustration is not None:
+        _draw_illustration(image, layout, illustration, wash=art_wash)
+        _veil(image, layout)
     _draw_frame(draw, layout)
     _draw_banner(draw, layout, fonts, board)
     _draw_agenda(draw, layout, fonts, board, max_events)
-    if illustration is not None:
-        _draw_illustration(image, layout, illustration)
     _draw_weather(draw, layout, fonts, board)
     _draw_footer(draw, layout, fonts, board)
 
@@ -80,43 +83,61 @@ def render_board(
 
 # ─── Illustration ───────────────────────────────────────────────
 
-def _draw_illustration(canvas: Image.Image, layout: Layout, illustration: Image.Image) -> None:
-    """Fit the picture into the reserved panel, cropping rather than squashing.
 
-    Photographs and panels rarely share an aspect ratio, and a stretched face
-    is worse than a cropped one.
+def _draw_illustration(canvas: Image.Image, layout: Layout, illustration: Image.Image,
+                       wash: float = 0.72) -> None:
+    """Lay the picture across the whole page, pale enough to read type over.
+
+    Two steps, and both matter. The tonal range is stretched first, because a
+    model's idea of black ink on cream lands in the middle greys. Then the
+    whole thing is lifted towards the paper: on a panel with sixteen levels and
+    no backlight, a picture at full strength and black text on top of it cannot
+    both be legible, and the text is the part nobody may lose.
     """
     panel = layout.art
     if panel.width <= 0 or panel.height <= 0:
         return
 
-    # Stretch the tonal range before anything else. A model's idea of "black
-    # ink on cream" lands in the middle greys, which is fine on a screen and
-    # mud on a panel with sixteen levels and no backlight. The cutoff ignores a
-    # little at each end so one stray highlight cannot anchor the whole scale.
     picture = ImageOps.autocontrast(illustration.convert("L"), cutoff=2)
     scale = max(panel.width / picture.width, panel.height / picture.height)
     resized = picture.resize(
         (max(1, round(picture.width * scale)), max(1, round(picture.height * scale))),
         Image.LANCZOS,
     )
-
     left = (resized.width - panel.width) // 2
     top = (resized.height - panel.height) // 2
     cropped = resized.crop((left, top, left + panel.width, top + panel.height))
 
-    # The picture becomes a card like the others. Square corners next to two
-    # rounded ones read as an unfinished page rather than a deliberate one.
-    radius = layout.plate_radius
+    wash = min(max(wash, 0.0), 0.95)
+    faded = cropped.point(lambda value: round(255 - (255 - value) * (1 - wash)))
+
     mask = Image.new("L", (panel.width, panel.height), 0)
     ImageDraw.Draw(mask).rounded_rectangle(
-        (0, 0, panel.width - 1, panel.height - 1), radius=radius, fill=255
+        (0, 0, panel.width - 1, panel.height - 1),
+        radius=max(2, layout.corner_radius // 2), fill=255,
     )
-    canvas.paste(cropped, (panel.left, panel.top), mask)
+    canvas.paste(faded, (panel.left, panel.top), mask)
 
-    ImageDraw.Draw(canvas).rounded_rectangle(
-        panel.as_tuple(), radius=radius, outline=theme.INK, width=layout.plate_stroke
-    )
+
+def _veil(canvas: Image.Image, layout: Layout) -> None:
+    """Lift the areas that carry text further towards the paper.
+
+    The picture is whatever the day's photograph became, and no wash strong
+    enough to guarantee contrast everywhere would leave a picture worth having.
+    So the two regions that carry type — the list and the corner — are lifted a
+    little more, with a blurred mask so the edge reads as light falling off
+    rather than as a box drawn on top.
+    """
+    veil = Image.new("L", canvas.size, 0)
+    painter = ImageDraw.Draw(veil)
+    pad = layout.plate_padding
+    for rect in (layout.agenda, layout.weather):
+        painter.rounded_rectangle(
+            (rect.left - pad, rect.top - pad, rect.right + pad, rect.bottom + pad),
+            radius=layout.corner_radius, fill=200,
+        )
+    veil = veil.filter(ImageFilter.GaussianBlur(pad))
+    canvas.paste(Image.new("L", canvas.size, theme.PAPER), (0, 0), veil)
 
 
 # ─── Frame ──────────────────────────────────────────────────────
@@ -222,19 +243,17 @@ def _densities(layout: Layout, fonts: theme.Fonts) -> tuple[Density, ...]:
     return (comfortable, snug, compact)
 
 
+
 def _draw_agenda(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
                  board: Board, max_events: int) -> None:
-    _plate(draw, layout, layout.agenda)
-
+    """A timetable, not a card: hours in a column, a rule, then the entries."""
     area = layout.agenda_text
     heading_font = fonts.get(layout.size_heading, theme.BOLD)
-    draw.text((area.left, area.top), AGENDA_HEADING.upper(), font=heading_font,
-              fill=theme.MUTED, anchor="lt")
+    draw.text((layout.agenda.left, layout.agenda.top), AGENDA_HEADING.upper(),
+              font=heading_font, fill=theme.INK_SOFT, anchor="lt")
 
-    heading_bottom = area.top + _text_height(draw, AGENDA_HEADING, heading_font)
-    _dotted_rule(draw, area.left, area.right, heading_bottom + layout.line_spacing * 2,
-                 layout.plate_stroke)
-    list_top = heading_bottom + layout.line_spacing * 4
+    heading_bottom = layout.agenda.top + _text_height(draw, AGENDA_HEADING, heading_font)
+    list_top = heading_bottom + layout.line_spacing * 5
 
     if not board.calendar_ok:
         _draw_agenda_note(draw, layout, fonts, CALENDAR_ERROR_LABEL, list_top)
@@ -245,7 +264,7 @@ def _draw_agenda(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
 
     events = list(board.events[:max_events])
     hidden = len(board.events) - len(events)
-    available = area.bottom - list_top
+    available = layout.agenda.bottom - list_top
 
     density, heights, fitted = _choose_density(draw, layout, fonts, events, hidden, available)
 
@@ -254,10 +273,15 @@ def _draw_agenda(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
         _draw_row(draw, layout, density, events[index], y)
         y += heights[index]
 
+    # The rule spans only the entries it holds together.
+    rule_x = layout.agenda.left + layout.time_column
+    draw.line((rule_x, list_top, rule_x, y - density.padding),
+              fill=theme.INK_SOFT, width=max(1, layout.plate_stroke // 2))
+
     left_out = hidden + (len(events) - fitted)
     if left_out > 0:
         label = f"e altri {left_out} appuntamenti" if left_out > 1 else "e un altro appuntamento"
-        draw.text((area.left, y + density.padding), label,
+        draw.text((rule_x + layout.agenda_rule_gap, y + density.padding), label,
                   font=density.note_font, fill=theme.MUTED, anchor="lt")
 
 
@@ -291,54 +315,42 @@ def _fit_rows(heights: list[int], available: int, reserve: int) -> int:
     return len(heights)
 
 
+
 def _draw_row(draw, layout: Layout, density: Density, event: Event, top: int) -> None:
-    """`• 09:00 — Consulenza Rossi`, wrapped under the time when it runs long."""
-    area = layout.agenda_text
-    text_left = area.left + layout.bullet_radius * 2 + layout.bullet_gap
+    """Hour right-aligned against the rule, title left-aligned after it."""
+    rule_x = layout.agenda.left + layout.time_column
+    text_left = rule_x + layout.agenda_rule_gap
     ascent, descent = density.title_font.getmetrics()
     line_height = ascent + descent
-
     baseline = top + density.padding + ascent
-    draw.ellipse(
-        (area.left, baseline - ascent // 2 - layout.bullet_radius,
-         area.left + layout.bullet_radius * 2, baseline - ascent // 2 + layout.bullet_radius),
-        fill=theme.INK,
-    )
 
     time_label, time_font = _time_label(event, density)
-    draw.text((text_left, baseline), time_label, font=time_font,
-              fill=theme.INK, anchor="ls")
+    draw.text((rule_x - layout.agenda_rule_gap, baseline), time_label,
+              font=time_font, fill=theme.INK, anchor="rs")
 
-    # Everything after the time is one string, so the dash sits on the same
-    # baseline as the words around it rather than being placed on its own.
-    title_x = (text_left + draw.textlength(time_label, font=time_font)
-               + draw.textlength(" ", font=density.title_font))
-    lines = _row_lines(draw, layout, density, event)
-
-    draw.text((title_x, baseline), lines[0], font=density.title_font,
-              fill=theme.INK, anchor="ls")
-    for offset, line in enumerate(lines[1:], start=1):
+    for offset, line in enumerate(_row_lines(draw, layout, density, event)):
         draw.text((text_left, baseline + offset * (line_height + density.line_spacing)),
                   line, font=density.title_font, fill=theme.INK, anchor="ls")
 
 
 def _time_label(event: Event, density: Density):
-    """All-day entries get the small muted face; their label is a long one."""
+    """All-day entries get a dash.
+
+    The column is sized for `09:00`; `tutto il giorno` ran out of it and off the
+    page. A dash is what a timetable uses for "no fixed hour", and it costs
+    nothing to read.
+    """
     if event.all_day:
-        return ALL_DAY_LABEL, density.note_font
+        return ALL_DAY_DASH, density.time_font
     return event.start_label, density.time_font
 
 
-def _row_lines(draw, layout: Layout, density: Density, event: Event) -> list[str]:
-    area = layout.agenda_text
-    text_left = area.left + layout.bullet_radius * 2 + layout.bullet_gap
-    time_label, time_font = _time_label(event, density)
-    title_x = (text_left + draw.textlength(time_label, font=time_font)
-               + draw.textlength(" ", font=density.title_font))
 
+def _row_lines(draw, layout: Layout, density: Density, event: Event) -> list[str]:
+    width = layout.agenda.right - (layout.agenda.left + layout.time_column
+                                   + layout.agenda_rule_gap)
     return _wrap_first_then_full(
-        draw, f"{SEPARATOR} {event.title}", density.title_font,
-        max(0, area.right - title_x), area.right - text_left, MAX_TITLE_LINES,
+        draw, event.title, density.title_font, width, width, MAX_TITLE_LINES,
     )
 
 
@@ -381,46 +393,42 @@ def _weather_metrics(draw, layout: Layout, fonts: theme.Fonts, condition: str):
     return icon_size, icon_size + text_block, condition_font, range_font
 
 
+
 def _draw_weather(draw, layout: Layout, fonts: theme.Fonts, board: Board) -> None:
-    """Icon and temperature on one line, the condition underneath.
-
-    The card is a narrow corner of the panel. Setting the condition beside the
-    icon left it about two hundred pixels, which is not enough for an honest
-    Italian label — *Pioviggine gelata* had to be clipped. Underneath, it has
-    the full width of the card.
-    """
-    _plate(draw, layout, layout.weather)
-    area = layout.weather.inset(layout.plate_padding)
-
+    """No plate and no border: the picture is the background, and a box drawn
+    on top of it would be one frame too many."""
+    area = layout.weather
     temp_font = fonts.get(layout.size_temp, theme.HEAVY)
     high = _format_temp(board.weather.temp_max if board.weather else None,
                         board.weather.unit_symbol if board.weather else "°C")
     condition = board.weather.condition if board.weather else WEATHER_ERROR_LABEL
     code = board.weather.weather_code if board.weather else 3
 
-    icon_size, block_height, condition_font, range_font = _weather_metrics(
-        draw, layout, fonts, condition
-    )
-    top = area.top + max(0, (area.height - block_height) // 2)
+    condition_font = _fitted_font(draw, condition, fonts, layout.size_condition,
+                                  theme.REGULAR, area.width)
+    range_font = fonts.get(layout.size_range, theme.REGULAR)
 
     temp_height = _text_height(draw, high, temp_font)
-    row_width = icon_size + layout.bullet_gap + draw.textlength(high, font=temp_font)
-    icon_left = area.left + max(0, (area.width - round(row_width)) // 2)
+    icon = min(layout.icon_size, temp_height)
 
-    icons.draw_weather(draw, icon_left, top, icon_size, code)
-    draw.text((icon_left + icon_size + layout.bullet_gap,
-               top + (icon_size - temp_height) // 2),
-              high, font=temp_font, fill=theme.INK, anchor="lt")
+    # Icon and temperature on one line, right-aligned to the margin.
+    temp_width = draw.textlength(high, font=temp_font)
+    row_top = area.bottom - temp_height - _text_height(draw, condition, condition_font) \
+        - _text_height(draw, "minima 0°", range_font) - layout.line_spacing * 2
+    icons.draw_weather(draw, round(area.right - temp_width - layout.bullet_gap - icon),
+                       row_top, icon, code)
+    draw.text((area.right, row_top), high, font=temp_font, fill=theme.INK, anchor="rt")
 
-    condition_y = top + icon_size + layout.line_spacing
-    draw.text((area.centre_x, condition_y), condition, font=condition_font,
-              fill=theme.INK_SOFT, anchor="mt")
+    condition_y = row_top + temp_height + layout.line_spacing
+    draw.text((area.right, condition_y), condition, font=condition_font,
+              fill=theme.INK_SOFT, anchor="rt")
 
     if board.weather and board.weather.temp_min is not None:
         low = _format_temp(board.weather.temp_min, board.weather.unit_symbol)
-        condition_height = _text_height(draw, condition, condition_font)
-        draw.text((area.centre_x, condition_y + condition_height + layout.line_spacing),
-                  f"minima {low}", font=range_font, fill=theme.MUTED, anchor="mt")
+        draw.text((area.right,
+                   condition_y + _text_height(draw, condition, condition_font)
+                   + layout.line_spacing),
+                  f"minima {low}", font=range_font, fill=theme.MUTED, anchor="rt")
 
 
 def _format_temp(value: float | None, unit_symbol: str) -> str:
@@ -436,8 +444,9 @@ def _draw_footer(draw, layout: Layout, fonts: theme.Fonts, board: Board) -> None
     parts = [f"aggiornato alle {board.generated_at:%H:%M}"]
     if not board.weather_ok:
         parts.append(WEATHER_ERROR_LABEL)
-    draw.text((layout.footer.right, (layout.footer.top + layout.footer.bottom) // 2),
-              " · ".join(parts), font=font, fill=theme.MUTED, anchor="rm")
+    # Left, opposite the weather: on the right the two ran into each other.
+    draw.text((layout.footer.left, (layout.footer.top + layout.footer.bottom) // 2),
+              " · ".join(parts), font=font, fill=theme.MUTED, anchor="lm")
 
 
 def _draw_debug_regions(draw, layout: Layout) -> None:

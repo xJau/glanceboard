@@ -82,53 +82,54 @@ class Layout:
             height - self.frame_outer - self.frame_gap - padding,
         )
 
-        # Ribbon across the top, centred.
-        banner_height = round(0.120 * height)
-        banner_width = round(0.58 * width)
+        # The picture is the page. It fills everything inside the frame, and
+        # the text sits on top of it — washed pale enough that black type still
+        # reads on a panel with no backlight.
+        self.art = Rect(
+            self.frame_outer + self.frame_gap,
+            self.frame_outer + self.frame_gap,
+            width - self.frame_outer - self.frame_gap,
+            height - self.frame_outer - self.frame_gap,
+        )
+
+        # A smaller ribbon: the date is a label, not the subject.
+        banner_height = round(0.082 * height)
+        banner_width = round(0.42 * width)
         self.banner = Rect(
             self.content.centre_x - banner_width // 2,
             self.content.top,
             self.content.centre_x + banner_width // 2,
             self.content.top + banner_height,
         )
-        self.banner_notch = round(banner_height * 0.30)
+        self.banner_notch = round(banner_height * 0.32)
 
-        gutter = round(0.030 * short_side)
-        columns_top = self.banner.bottom + round(0.040 * height)
-        left_width = round((1.0 - art_fraction) * self.content.width) - gutter
+        columns_top = self.banner.bottom + round(0.052 * height)
 
-        # The agenda takes the whole left column. In landscape the canvas is
-        # short, and the list is the thing that needs the height.
+        # The agenda is a column of entries on the left, with no card under it.
+        # A rule down the left edge holds the list together instead.
         self.agenda = Rect(
             self.content.left,
             columns_top,
-            self.content.left + left_width,
+            self.content.left + round(0.60 * self.content.width),
             self.content.bottom,
         )
+        self.agenda_rule_gap = round(0.020 * short_side)
+        # A timetable: hours right-aligned in their own column, a rule, then
+        # the entries. The eye finds "what time" and "what" in two fixed places
+        # instead of reading along a sentence.
+        self.time_column = round(0.155 * self.agenda.width)
 
-        # Right column: the illustration panel above, weather in the corner
-        # below it — the position it holds in the original.
-        # The weather is a glance, not a panel: a smaller card leaves the
-        # illustration the room it deserves. The block inside it shrinks its
-        # icon to fit whatever height is left, so this stays a free choice.
-        weather_height = round(0.185 * height)
+        # The weather floats in the bottom corner: an icon, a number, a word.
+        weather_height = round(0.155 * height)
+        weather_width = round(0.30 * width)
         self.weather = Rect(
-            self.agenda.right + gutter,
+            self.content.right - weather_width,
             self.content.bottom - weather_height,
             self.content.right,
             self.content.bottom,
         )
 
-        # Nothing is drawn in the art panel in phase 1; it exists so the picture,
-        # when it arrives, lands in space the rest of the layout has accounted for.
-        self.art = Rect(
-            self.agenda.right + gutter,
-            columns_top,
-            self.content.right,
-            self.weather.top - gutter,
-        )
-
-        # The timestamp is a caption in the margin below the cards, not a card.
+        # The timestamp is a caption in the margin, not a card.
         self.footer = Rect(
             self.content.left,
             self.content.bottom,
@@ -149,7 +150,7 @@ class Layout:
 
         # Type scale, driven by the short side so the proportions hold across
         # panel sizes.
-        self.size_banner = round(0.070 * short_side)
+        self.size_banner = round(0.052 * short_side)
         self.size_heading = round(0.032 * short_side)
         self.size_time = round(0.040 * short_side)
         self.size_title = round(0.040 * short_side)
@@ -163,9 +164,14 @@ class Layout:
 
     @property
     def agenda_text(self) -> Rect:
-        """The area inside the agenda card, after its padding."""
-        return self.agenda.inset(self.plate_padding)
+        """Where the list is set. No card, so only the rule needs clearing."""
+        return Rect(
+            self.agenda.left + self.agenda_rule_gap,
+            self.agenda.top,
+            self.agenda.right,
+            self.agenda.bottom,
+        )
 
     @property
     def row_text_width(self) -> int:
-        return self.agenda_text.width - self.bullet_radius * 2 - self.bullet_gap
+        return self.agenda_text.width

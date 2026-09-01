@@ -84,24 +84,6 @@ def test_an_unreachable_calendar_still_renders():
     assert image.size == (1448, 1072)
 
 
-def test_a_crowded_day_leaves_the_illustration_panel_empty():
-    """Phase 2 fills that panel. Nothing in phase 1 may encroach on it."""
-    events = [timed(hour, f"Appuntamento numero {hour} con un nome lungo")
-              for hour in range(7, 20)]
-    image = render_board(make_board(events, WEATHER), 1448, 1072, FONT_DIR, max_events=13)
-    layout = Layout(1448, 1072)
-
-    panel = image.crop(layout.art.as_tuple())
-    assert levels_used(panel) == {PAPER}, "something was drawn into the illustration panel"
-
-
-def test_the_illustration_panel_can_be_resized():
-    wide = Layout(1448, 1072, art_fraction=0.5)
-    narrow = Layout(1448, 1072, art_fraction=0.1)
-    assert wide.art.width > narrow.art.width
-    assert wide.agenda.width < narrow.agenda.width
-
-
 def test_an_out_of_range_panel_share_is_rejected():
     with pytest.raises(ValueError):
         Layout(1448, 1072, art_fraction=0.9)
@@ -114,12 +96,6 @@ def test_the_cards_stay_inside_the_frame():
         assert rect.right <= 1448 - layout.frame_outer - layout.frame_gap
         assert rect.top >= layout.frame_outer + layout.frame_gap
         assert rect.bottom <= 1072 - layout.frame_outer - layout.frame_gap
-
-
-def test_the_agenda_and_the_illustration_panel_do_not_overlap():
-    layout = Layout(1448, 1072)
-    assert layout.agenda.right < layout.art.left
-    assert layout.art.bottom <= layout.weather.top
 
 
 # ─── Weather glyphs ─────────────────────────────────────────────
@@ -229,23 +205,6 @@ def test_every_weather_label_fits_its_card_without_shrinking():
     assert not too_wide, f"these labels do not fit the weather card: {too_wide}"
 
 
-@pytest.mark.parametrize("width,height", SIZES)
-def test_the_weather_block_never_outgrows_its_card(width, height):
-    """The longest label must not push `minima` out through the card's bottom."""
-    from glanceboard.render.board import _weather_metrics
-    from glanceboard.render.theme import Fonts as _Fonts
-    from glanceboard.weather import WMO_CODES
-
-    layout = Layout(width, height)
-    fonts = _Fonts(FONT_DIR)
-    draw = ImageDraw.Draw(Image.new("L", (width, height)))
-    area_height = layout.weather.height - 2 * layout.plate_padding
-
-    for label in sorted(set(WMO_CODES.values())):
-        _, block_height, _, _ = _weather_metrics(draw, layout, fonts, label)
-        assert block_height <= area_height, f"{label!r} overflows the weather card"
-
-
 def test_the_font_cache_is_shared_between_renders():
     """Caching on the instance means every render re-reads the file."""
     first = Fonts(FONT_DIR).get(40, 400)
@@ -257,6 +216,42 @@ def test_different_weights_are_different_faces():
     regular = Fonts(FONT_DIR).get(40, 400)
     bold = Fonts(FONT_DIR).get(40, 700)
     assert regular is not bold
+
+
+def test_the_picture_is_washed_pale_enough_to_read_type_over():
+    """The picture is the page now. Black text has to survive on top of it, on
+    a panel with sixteen levels and no backlight — so nothing in the background
+    may come out dark."""
+    dark = Image.new("L", (400, 300), 0)
+    image = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR, illustration=dark)
+    layout = Layout(1448, 1072)
+
+    # A corner of the page with no type on it: whatever the picture was, what
+    # lands there has to stay light.
+    corner = image.crop((layout.art.left + 20, layout.art.top + 20,
+                         layout.art.left + 120, layout.art.top + 120))
+    assert min(levels_used(corner)) >= 153, "the background is too dark for black type"
+
+
+def test_a_lighter_wash_keeps_more_of_the_picture():
+    dark = Image.new("L", (400, 300), 0)
+    layout = Layout(1448, 1072)
+    box = (layout.art.left + 20, layout.art.top + 20,
+           layout.art.left + 120, layout.art.top + 120)
+
+    pale = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR,
+                        illustration=dark, art_wash=0.85).crop(box)
+    strong = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR,
+                          illustration=dark, art_wash=0.45).crop(box)
+    assert min(levels_used(strong)) < min(levels_used(pale))
+
+
+def test_the_weather_stays_in_its_corner():
+    """No card under it any more, so nothing stops it running into the agenda
+    except the geometry."""
+    layout = Layout(1448, 1072)
+    assert layout.weather.left > layout.agenda.right - 1
+    assert layout.weather.bottom <= layout.content.bottom
 
 
 def test_the_illustration_is_stretched_to_use_the_panel_range():
@@ -275,12 +270,3 @@ def test_the_illustration_is_stretched_to_use_the_panel_range():
     assert max(levels) >= 221, "the lights never arrived"
 
 
-def test_the_illustration_stays_inside_its_panel():
-    """Nothing of the picture may spill onto the agenda or the weather card."""
-    picture = Image.new("L", (400, 100), 0)  # solid black, the worst case
-    image = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR, illustration=picture)
-    layout = Layout(1448, 1072)
-
-    strip = image.crop((layout.art.left, layout.art.bottom + 4,
-                        layout.art.right, layout.weather.top - 1))
-    assert levels_used(strip) == {PAPER}, "the picture leaked below its panel"

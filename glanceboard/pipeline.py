@@ -199,6 +199,7 @@ def render_to_file(
         font_dir=settings.font_dir,
         max_events=settings.max_events,
         art_fraction=settings.art_fraction,
+        art_wash=settings.art_wash,
         illustration=illustration,
         debug_regions=debug_regions,
     )

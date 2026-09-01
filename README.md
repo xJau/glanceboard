@@ -42,28 +42,43 @@ Running on a Paperwhite 4. Phase 1 — calendar, weather, the deterministic boar
 
 ## The layout
 
-Landscape, following the shape of the original: a ribbon across the top, the
-day's list on the left, the weather in a corner, and space kept for a picture.
+The picture is the page. Everything else sits on top of it: a small ribbon with
+the date, the day as a timetable down the left, the weather floating in the
+corner, and a caption in the margin. Only the outer frame is drawn as a line —
+there are no cards.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              ╱‾‾‾ Martedì 1 settembre ‾‾‾╲               │  ribbon: the date
-│  ┌────────────────────────────┐  ┌────────────────────┐  │
-│  │ IN PROGRAMMA OGGI          │  │                    │  │
-│  │ • tutto il giorno — …      │  │   illustration     │  │  reserved panel,
-│  │ • 09:00 — Consulenza Rossi │  │      panel         │  │  empty in phase 1
-│  │ • 11:30 — Call Bianchi SRL │  │                    │  │
-│  │ • 14:00 — Sopralluogo …    │  ├────────────────────┤  │
-│  │ • 16:00 — Riunione team    │  │  ☁  28°            │  │  weather
-│  │ • 18:30 — Palestra         │  │     Coperto        │  │
-│  └────────────────────────────┘  └────────────────────┘  │
-│                                    aggiornato alle 05:00 │
+│  · · · · · ·  ╱‾ Martedì 1 settembre ‾╲  · · · · · · · · │
+│  IN PROGRAMMA OGGI · · · · · · · · · · · · · · · · · · · │
+│        —  │ Studio chiuso il pomeriggio · · · · · · · ·  │
+│     09:00 │ Consulenza Rossi · · · the illustration, · · │
+│     11:30 │ Call Bianchi SRL · · · washed pale, filling  │
+│     14:00 │ Sopralluogo cantiere · the whole page · · ·  │
+│     18:30 │ Palestra · · · · · · · · · · · ·   ☁ 30°  ·  │
+│  aggiornato alle 05:00 · · · · · · · · · · ·   Coperto   │
 └──────────────────────────────────────────────────────────┘
 ```
 
 The board is composed at 1448×1072 and rotated a quarter turn on the way out,
 because the Paperwhite panel is physically portrait. `GB_ROTATE` decides which
 way; `--upright` skips it while you are looking at the PNG on a desk.
+
+Legibility over a photograph is the whole problem. Two things solve it, and
+both are adjustable. The picture is washed towards the paper — `GB_ART_WASH`,
+at `0.78` by default — and the two regions that carry type are lifted a little
+further under a blurred veil, so the edge reads as light falling off rather
+than as a box. No wash strong enough to guarantee contrast over *any*
+photograph would leave a picture worth having, which is why there is a veil at
+all.
+
+The day is set as a timetable: hours right-aligned in their own column, a rule,
+then the entries. The eye finds *what time* and *what* in two fixed places
+instead of reading along a sentence. All-day entries get a dash, the way a
+timetable says "no fixed hour".
+
+Rows compact before anything is dropped: first the spacing, then the type size,
+and only then does a day too full to fit end with *e altri 2 appuntamenti*.
 
 ## The illustration
 
@@ -211,7 +226,7 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_TEMP_UNIT` | `celsius` | `celsius` or `fahrenheit`. |
 | `GB_WIDTH`, `GB_HEIGHT` | `1448`, `1072` | Landscape canvas. PW5/PW6: `1648`, `1236`. |
 | `GB_ROTATE` | `90` | Quarter turns applied to the PNG. `0`, `90`, `180`, `270`. |
-| `GB_ART_FRACTION` | `0.34` | Share of the width reserved for the illustration. |
+| `GB_ART_WASH` | `0.78` | How far the picture is washed towards the paper. |
 | `GB_MAX_EVENTS` | `12` | Upper bound before the `+N altri` note. |
 | `GB_SLOTS` | `5,12,18` | Hours at which the board is regenerated. |
 | `GB_DISPLAY_TOKEN` | — | Required to serve. At least 24 characters. |

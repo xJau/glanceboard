@@ -74,8 +74,8 @@ def _env_int(name: str, default: int) -> int:
         raise ConfigError(f"{name} must be an integer, got {raw!r}") from exc
 
 
-def _env_fraction(name: str, default: float) -> float:
-    """A 0..0.6 share of the canvas height, used for the reserved art band."""
+def _env_fraction(name: str, default: float, ceiling: float = 0.6) -> float:
+    """A bounded fraction: a share of the canvas, or the strength of a wash."""
     raw = _env(name)
     if raw is None:
         return default
@@ -83,8 +83,8 @@ def _env_fraction(name: str, default: float) -> float:
         value = float(raw)
     except ValueError as exc:
         raise ConfigError(f"{name} must be a number between 0 and 0.6, got {raw!r}") from exc
-    if not 0.0 <= value <= 0.6:
-        raise ConfigError(f"{name} must be between 0 and 0.6, got {value}")
+    if not 0.0 <= value <= ceiling:
+        raise ConfigError(f"{name} must be between 0 and {ceiling}, got {value}")
     return value
 
 
@@ -150,6 +150,7 @@ class Settings:
     request_timeout: int
     max_events: int
     art_fraction: float
+    art_wash: float
     gemini_api_key: str | None
     photo_dir: Path
     style_prompt: str | None
@@ -216,6 +217,7 @@ class Settings:
             request_timeout=_env_int("GB_REQUEST_TIMEOUT", 20),
             max_events=_env_int("GB_MAX_EVENTS", 12),
             art_fraction=_env_fraction("GB_ART_FRACTION", 0.34),
+            art_wash=_env_fraction("GB_ART_WASH", 0.78, ceiling=0.95),
             gemini_api_key=_env("GB_GEMINI_API_KEY"),
             photo_dir=Path(_env("GB_PHOTO_DIR", str(output_dir / "photos"))).expanduser(),
             style_prompt=_env("GB_STYLE_PROMPT"),
