@@ -134,9 +134,11 @@ def _veil(canvas: Image.Image, layout: Layout) -> None:
     for rect in (layout.agenda, layout.weather):
         painter.rounded_rectangle(
             (rect.left - pad, rect.top - pad, rect.right + pad, rect.bottom + pad),
-            radius=layout.corner_radius, fill=200,
+            radius=layout.corner_radius, fill=110,
         )
-    veil = veil.filter(ImageFilter.GaussianBlur(pad))
+    # A wide blur: with a sparse drawing the veil is the thing you notice if
+    # its edge is anywhere near crisp.
+    veil = veil.filter(ImageFilter.GaussianBlur(pad * 2))
     canvas.paste(Image.new("L", canvas.size, theme.PAPER), (0, 0), veil)
 
 
