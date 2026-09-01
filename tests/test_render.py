@@ -299,3 +299,15 @@ def test_both_sides_render():
 def test_an_unknown_side_is_rejected():
     with pytest.raises(ValueError):
         Layout(1448, 1072, text_side="middle")
+
+
+def test_the_timetable_mirrors_with_its_column():
+    """A list moved right with its numbers still on the left leaves them
+    stranded mid-page, pointing at nothing."""
+    left = Layout(1448, 1072, text_side="left")
+    right = Layout(1448, 1072, text_side="right")
+
+    # The hours sit against the outer margin on either side.
+    assert left.rule_x - left.agenda.left == left.time_column
+    assert right.agenda.right - right.rule_x == right.time_column
+    assert left.entry_width == right.entry_width

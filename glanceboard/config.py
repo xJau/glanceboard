@@ -161,6 +161,7 @@ class Settings:
     photo_limit: int
     subject_model: str
     adaptive_layout: bool
+    styles: str | None
     rotate: int
     allow_no_token: bool
     tzinfo: ZoneInfo = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
@@ -233,6 +234,7 @@ class Settings:
             photo_limit=_env_int("GB_PHOTO_LIMIT", 60),
             subject_model=_env("GB_SUBJECT_MODEL", "gemini-flash-lite-latest"),
             adaptive_layout=_env_bool("GB_ADAPTIVE_LAYOUT", True),
+            styles=_env("GB_STYLES"),
             rotate=_env_rotation("GB_ROTATE", 90),
             allow_no_token=_env_bool("GB_ALLOW_NO_TOKEN", False),
             tzinfo=tz,

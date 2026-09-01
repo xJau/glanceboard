@@ -111,6 +111,19 @@ and a photograph. There is no path by which an appointment reaches it, and a
 test asserts as much — which is stricter than filtering a payload, because
 there is no payload to filter.
 
+**A style a day, alongside the photograph.** Six hands are in rotation —
+storybook ink, comic panel, frontier wood engraving, pulp science fiction,
+etching, sumi-e — so the same picture comes back in a different register rather
+than looking like yesterday. Six photographs and six styles is thirty-six days
+before a pairing repeats, and a pairing already drawn is simply found in the
+cache: an illustration is keyed by photograph and instruction, so the rotation
+costs one call the first time round and nothing afterwards.
+
+Every style carries the same three constraints, because they are what make a
+drawing survive the panel rather than the screen: monochrome, ink rather than
+tone, and large areas of paper left alone. A style that fills the page with grey
+is unreadable behind text at any wash.
+
 **The library is separate from where the photos came from.** A public Google
 Photos album can top it up before each render, but reading a share page is not
 a documented interface — Google removed the read-only Library API scopes in
@@ -269,7 +282,8 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_PHOTO_LIMIT` | `60` | How many photos to keep from the album. |
 | `GB_ADAPTIVE_LAYOUT` | `1` | Put the text on whichever side the picture leaves quiet. |
 | `GB_SUBJECT_MODEL` | `gemini-flash-lite-latest` | Asked where the subjects are. |
-| `GB_STYLE_PROMPT` | — | Overrides the built-in style instruction. |
+| `GB_STYLE_PROMPT` | — | A fixed style, overriding the rotation entirely. |
+| `GB_STYLES` | all | Which hands are in rotation, comma separated. |
 
 ## Client data
 

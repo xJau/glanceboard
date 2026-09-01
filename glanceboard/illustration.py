@@ -74,8 +74,15 @@ def build_prompt(style_prompt: str | None = None) -> str:
     return (style_prompt or DEFAULT_STYLE_PROMPT).strip()
 
 
-def cache_key(photo: Path, prompt: str, model: str, version: str) -> str:
-    """Identifies a rendering of one photo in one style by one model."""
+def cache_key(photo: Path, prompt: str, model: str, version: str = "1") -> str:
+    """Identifies a rendering of one photo in one style by one model.
+
+    Deliberately not the package version. Keying on that meant every release —
+    a moved ribbon, a smaller weather card — threw away every illustration and
+    bought them all again. What the picture depends on is the photograph, the
+    instruction and the model; `version` is here only to force a rebuild by
+    hand if one is ever needed.
+    """
     digest = hashlib.sha256()
     digest.update(Path(photo).read_bytes())
     digest.update(prompt.encode("utf-8"))

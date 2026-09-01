@@ -184,13 +184,21 @@ def illustration_for(settings: Settings, day: date):
         log.info("No illustration: %s", _brief(exc))
         return None, None, None
 
+    from . import styles
+
+    # A fixed GB_STYLE_PROMPT overrides everything; otherwise today's hand.
+    if settings.style_prompt:
+        prompt = settings.style_prompt
+        style_name = "custom"
+    else:
+        style_name = styles.style_for_day(day, settings.styles)
+        prompt = styles.prompt_for(style_name)
+
     key = illustration_module.cache_key(
-        photo,
-        illustration_module.build_prompt(settings.style_prompt),
-        settings.illustration_model,
-        __version__,
+        photo, illustration_module.build_prompt(prompt), settings.illustration_model
     )
 
+    log.info("Today's hand: %s on %s", style_name, photo.name)
     image, ok = _with_retries(
         "Illustration",
         lambda: illustration_module.illustrate(
@@ -198,8 +206,7 @@ def illustration_for(settings: Settings, day: date):
             api_key=settings.gemini_api_key,
             cache_dir=settings.illustration_cache,
             model=settings.illustration_model,
-            style_prompt=settings.style_prompt,
-            version=__version__,
+            style_prompt=prompt,
         ),
     )
     if not ok:

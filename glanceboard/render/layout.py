@@ -179,6 +179,21 @@ class Layout:
         self.icon_size = round(0.105 * short_side)
 
     @property
+    def rule_x(self) -> int:
+        """Where the vertical rule falls: the time column is measured from the
+        outer margin, whichever side that happens to be."""
+        if self.text_side == "left":
+            return self.agenda.left + self.time_column
+        return self.agenda.right - self.time_column
+
+    @property
+    def entry_width(self) -> int:
+        """Room for an entry, between the rule and the far margin."""
+        if self.text_side == "left":
+            return self.agenda.right - (self.rule_x + self.agenda_rule_gap)
+        return (self.rule_x - self.agenda_rule_gap) - self.agenda.left
+
+    @property
     def agenda_text(self) -> Rect:
         """Where the list is set. No card, so only the rule needs clearing."""
         return Rect(

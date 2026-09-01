@@ -160,3 +160,35 @@ def test_the_api_key_never_appears_in_the_body(photo, tmp_path, monkeypatch):
 
     assert captured["params"]["key"] == "segretissima"
     assert "segretissima" not in str(captured["json"])
+
+
+def test_a_release_does_not_throw_away_the_cache(photo, tmp_path):
+    """Keying on the package version meant every release re-bought every
+    illustration. What the picture depends on is the photo, the prompt and the
+    model — nothing else."""
+    prompt = illustration.build_prompt("uno stile")
+    first = illustration.cache_key(photo, prompt, "m")
+    assert first == illustration.cache_key(photo, prompt, "m")
+    assert first != illustration.cache_key(photo, illustration.build_prompt("altro"), "m")
+    assert first != illustration.cache_key(photo, prompt, "modello-diverso")
+
+
+def test_the_same_photo_in_two_styles_is_two_entries(photo, tmp_path, monkeypatch):
+    """Which is what lets a pairing already drawn simply be found again."""
+    from glanceboard import styles
+
+    calls = []
+    monkeypatch.setattr(requests, "post",
+                        lambda *a, **k: (calls.append(1), _reply_with_image()())[1])
+    cache = tmp_path / "cache"
+
+    illustration.illustrate(photo, api_key="k", cache_dir=cache,
+                            style_prompt=styles.prompt_for("fumetto"))
+    illustration.illustrate(photo, api_key="k", cache_dir=cache,
+                            style_prompt=styles.prompt_for("western"))
+    assert len(calls) == 2
+
+    # Coming round again costs nothing.
+    illustration.illustrate(photo, api_key="k", cache_dir=cache,
+                            style_prompt=styles.prompt_for("fumetto"))
+    assert len(calls) == 2

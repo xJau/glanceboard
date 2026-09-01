@@ -270,10 +270,13 @@ def _densities(layout: Layout, fonts: theme.Fonts) -> tuple[Density, ...]:
 def _draw_agenda(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
                  board: Board, max_events: int) -> None:
     """A timetable, not a card: hours in a column, a rule, then the entries."""
-    area = layout.agenda_text
     heading_font = fonts.get(layout.size_heading, theme.BOLD)
-    draw.text((layout.agenda.left, layout.agenda.top), AGENDA_HEADING.upper(),
-              font=heading_font, fill=theme.INK_SOFT, anchor="lt")
+    if layout.text_side == "left":
+        draw.text((layout.agenda.left, layout.agenda.top), AGENDA_HEADING.upper(),
+                  font=heading_font, fill=theme.INK_SOFT, anchor="lt")
+    else:
+        draw.text((layout.agenda.right, layout.agenda.top), AGENDA_HEADING.upper(),
+                  font=heading_font, fill=theme.INK_SOFT, anchor="rt")
 
     heading_bottom = layout.agenda.top + _text_height(draw, AGENDA_HEADING, heading_font)
     list_top = heading_bottom + layout.line_spacing * 5
@@ -297,15 +300,19 @@ def _draw_agenda(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
         y += heights[index]
 
     # The rule spans only the entries it holds together.
-    rule_x = layout.agenda.left + layout.time_column
+    rule_x = layout.rule_x
     draw.line((rule_x, list_top, rule_x, y - density.padding),
               fill=theme.INK_SOFT, width=max(1, layout.plate_stroke // 2))
 
     left_out = hidden + (len(events) - fitted)
     if left_out > 0:
         label = f"e altri {left_out} appuntamenti" if left_out > 1 else "e un altro appuntamento"
-        draw.text((rule_x + layout.agenda_rule_gap, y + density.padding), label,
-                  font=density.note_font, fill=theme.MUTED, anchor="lt")
+        if layout.text_side == "left":
+            draw.text((rule_x + layout.agenda_rule_gap, y + density.padding), label,
+                      font=density.note_font, fill=theme.MUTED, anchor="lt")
+        else:
+            draw.text((rule_x - layout.agenda_rule_gap, y + density.padding), label,
+                      font=density.note_font, fill=theme.MUTED, anchor="rt")
 
 
 def _choose_density(draw, layout: Layout, fonts: theme.Fonts, events: list[Event],
@@ -340,20 +347,28 @@ def _fit_rows(heights: list[int], available: int, reserve: int) -> int:
 
 
 def _draw_row(draw, layout: Layout, density: Density, event: Event, top: int) -> None:
-    """Hour right-aligned against the rule, title left-aligned after it."""
-    rule_x = layout.agenda.left + layout.time_column
-    text_left = rule_x + layout.agenda_rule_gap
+    """The hour against the outer margin, the entry against the rule.
+
+    Mirrored with the column: a list moved to the right side of the page with
+    its numbers still on the left leaves them stranded mid-page, pointing at
+    nothing.
+    """
+    rule_x = layout.rule_x
     ascent, descent = density.title_font.getmetrics()
     line_height = ascent + descent
     baseline = top + density.padding + ascent
+    on_left = layout.text_side == "left"
 
     time_label, time_font = _time_label(event, density)
-    draw.text((rule_x - layout.agenda_rule_gap, baseline), time_label,
-              font=time_font, fill=theme.INK, anchor="rs")
+    time_x = rule_x - layout.agenda_rule_gap if on_left else rule_x + layout.agenda_rule_gap
+    draw.text((time_x, baseline), time_label, font=time_font, fill=theme.INK,
+              anchor="rs" if on_left else "ls")
 
+    entry_x = rule_x + layout.agenda_rule_gap if on_left else rule_x - layout.agenda_rule_gap
     for offset, line in enumerate(_row_lines(draw, layout, density, event)):
-        draw.text((text_left, baseline + offset * (line_height + density.line_spacing)),
-                  line, font=density.title_font, fill=theme.INK, anchor="ls")
+        draw.text((entry_x, baseline + offset * (line_height + density.line_spacing)),
+                  line, font=density.title_font, fill=theme.INK,
+                  anchor="ls" if on_left else "rs")
 
 
 def _time_label(event: Event, density: Density):
@@ -370,8 +385,7 @@ def _time_label(event: Event, density: Density):
 
 
 def _row_lines(draw, layout: Layout, density: Density, event: Event) -> list[str]:
-    width = layout.agenda.right - (layout.agenda.left + layout.time_column
-                                   + layout.agenda_rule_gap)
+    width = layout.entry_width
     return _wrap_first_then_full(
         draw, event.title, density.title_font, width, width, MAX_TITLE_LINES,
     )
