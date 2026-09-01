@@ -130,6 +130,21 @@ Fill in `/mnt/us/glanceboard/glanceboard.conf` with the same three values —
 `BASE_URL`, `DISPLAY_TOKEN`, and the two `CF_ACCESS_*` fields — then follow
 [kindle/README.md](../kindle/README.md).
 
+## Changing the calendar
+
+```bash
+printf '%s' 'https://…/basic.ics' | scripts/set-ical
+```
+
+Run on the Pi. The URL comes in on standard input rather than as an argument,
+so it stays out of the shell history and out of the process list — that address
+is the whole of the calendar's security.
+
+The feed is fetched and parsed *before* anything is written: a URL that answers
+with a sign-in page is refused there and then, rather than discovered the next
+morning on the panel. The previous `.env` is kept beside it as `.env.bak`, at
+the same `0600` it had.
+
 ## Rotating the token
 
 `GB_DISPLAY_TOKEN` in `.env`, then `docker compose up -d`, then the same value

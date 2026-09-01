@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+# Copyright 2026 Glanceboard Kindle contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Point the board at a different calendar.
+
+Run on the Pi, with the feed URL on standard input:
+
+    printf '%s' 'https://…/basic.ics' | scripts/set-ical
+
+Reading it from stdin rather than an argument keeps the URL out of the shell
+history and out of the process list, which matters: that address is the whole
+of the calendar's security.
+
+The old value is kept in .env.bak before anything is written, and the new feed
+is fetched and parsed before the container is restarted — a URL that answers
+with a sign-in page is refused here rather than discovered tomorrow morning on
+the panel.
+"""
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+KEY = "GB_ICAL_URL"
+
+
+def main() -> int:
+    url = sys.stdin.read().strip()
+    if not url:
+        print("Nothing on standard input. Pipe the URL in.", file=sys.stderr)
+        return 2
+    if not url.startswith("https://"):
+        print(f"That does not look like a feed URL: {url[:24]}…", file=sys.stderr)
+        return 2
+
+    root = Path(__file__).resolve().parent.parent
+    env_file = root / ".env"
+    if not env_file.exists():
+        print(f"No .env at {env_file}", file=sys.stderr)
+        return 2
+
+    print("Checking the feed before changing anything…")
+    try:
+        events = _try_feed(root, url)
+    except Exception as exc:
+        print(f"Refused: {exc}", file=sys.stderr)
+        return 1
+    print(f"  it parses — {events} events today")
+
+    _backup(env_file)
+    _replace(env_file, KEY, url)
+    print(f"  {KEY} updated ({len(url)} characters); previous .env kept as .env.bak (0600)")
+
+    subprocess.run(["docker", "compose", "up", "-d"], cwd=root, check=False)
+    print("Restarted. The board regenerates on startup.")
+    return 0
+
+
+def _try_feed(root: Path, url: str) -> int:
+    """Fetch and parse the feed inside the container, where the code lives."""
+    script = (
+        "import os,sys;from datetime import date;from zoneinfo import ZoneInfo;"
+        "from glanceboard import calendar_feed;"
+        "print(len(calendar_feed.events_for_day(os.environ['U'], date.today(),"
+        " ZoneInfo(os.environ.get('GB_TIMEZONE','Europe/Rome')))))"
+    )
+    result = subprocess.run(
+        ["docker", "compose", "exec", "-T", "-e", f"U={url}", "-e", "PYTHONPATH=/app",
+         "glanceboard", "python", "-c", script],
+        cwd=root, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(_last_line(result.stderr) or "the container could not read it")
+    return int(result.stdout.strip().splitlines()[-1])
+
+
+def _backup(env_file: Path) -> None:
+    """Keep the previous .env, at the permissions the original had.
+
+    The copy holds the calendar URL, the display token and the API key. The
+    first version of this wrote it world-readable, which is the whole of the
+    file's protection undone by the thing meant to protect it.
+    """
+    backup = env_file.with_name(env_file.name + ".bak")
+    backup.touch(mode=0o600, exist_ok=True)
+    backup.chmod(0o600)
+    backup.write_text(env_file.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def _last_line(text: str) -> str:
+    lines = [line for line in text.strip().splitlines() if line.strip()]
+    return lines[-1][:200] if lines else ""
+
+
+def _replace(env_file: Path, key: str, value: str) -> None:
+    lines = env_file.read_text(encoding="utf-8").splitlines()
+    out, found = [], False
+    for line in lines:
+        if line.startswith(f"{key}="):
+            out.append(f"{key}={value}")
+            found = True
+        else:
+            out.append(line)
+    if not found:
+        out.append(f"{key}={value}")
+    env_file.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
