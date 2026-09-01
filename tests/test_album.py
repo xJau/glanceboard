@@ -46,14 +46,6 @@ def test_page_order_is_kept():
     assert first.endswith("one=w1600") and second.endswith("two=w1600")
 
 
-def test_a_page_with_no_photos_is_an_error(tmp_path, monkeypatch):
-    """Almost always a private album — worth saying so rather than sitting quiet."""
-    monkeypatch.setattr(requests, "get", lambda *a, **k: _Response("<html>nothing</html>"))
-    with pytest.raises(album.AlbumError) as error:
-        album.sync("https://photos.app.goo.gl/whatever", tmp_path)
-    assert "public" in str(error.value)
-
-
 def test_sync_downloads_what_is_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(requests, "get", _fake_get(SHARE_PAGE))
     assert album.sync("https://photos.app.goo.gl/x", tmp_path) == 2
@@ -122,6 +114,8 @@ def test_the_pipeline_survives_an_album_that_will_not_load(settings, monkeypatch
 
 
 class _Response:
+    url = "https://photos.google.com/share/AF1Qip?key=x"
+
     def __init__(self, text: str = "", body: bytes = b""):
         self.text = text
         self._body = body
@@ -140,3 +134,28 @@ def _fake_get(page: str, body: bytes = JPEG):
         return _Response(body=body)
 
     return get
+
+
+def test_a_short_link_says_what_to_use_instead(tmp_path, monkeypatch):
+    """photos.app.goo.gl serves a page only a browser can follow, and its
+    emptiness looks exactly like a private album unless we say otherwise."""
+    class ShortLink(_Response):
+        url = "https://photos.app.goo.gl/abc123"
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: ShortLink("<html>shell</html>"))
+    with pytest.raises(album.AlbumError) as error:
+        album.sync("https://photos.app.goo.gl/abc123", tmp_path)
+
+    message = str(error.value)
+    assert "photos.google.com/share" in message
+    assert "browser" in message
+
+
+def test_a_long_link_with_no_photos_blames_the_sharing_instead(tmp_path, monkeypatch):
+    class LongLink(_Response):
+        url = "https://photos.google.com/share/AF1Qip?key=x"
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: LongLink("<html>nothing</html>"))
+    with pytest.raises(album.AlbumError) as error:
+        album.sync("https://photos.google.com/share/AF1Qip?key=x", tmp_path)
+    assert "anyone with the link" in str(error.value)

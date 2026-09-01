@@ -96,10 +96,7 @@ def sync(
 
     urls = photo_urls(page.text, size=size)
     if not urls:
-        raise AlbumError(
-            "no photos found on the album page — either the album is not "
-            "public, or Google changed the page and this needs revisiting"
-        )
+        raise AlbumError(_why_nothing_was_found(page.url))
 
     directory = Path(photo_dir)
     directory.mkdir(parents=True, exist_ok=True)
@@ -118,6 +115,31 @@ def sync(
 
     log.info("Album: %d photos listed, %d new", len(urls), added)
     return added
+
+
+SHORT_LINK_HOST = "photos.app.goo.gl"
+
+
+def _why_nothing_was_found(final_url: str) -> str:
+    """Say which of the three likely causes it is, rather than listing them.
+
+    A share page with no photos in it is nearly always one of: a short link
+    that never resolved, an album that is not public, or Google having changed
+    the page. Only the first is distinguishable from here, and it is also the
+    most common — so it gets its own message.
+    """
+    if SHORT_LINK_HOST in final_url:
+        return (
+            f"the {SHORT_LINK_HOST} short link does not resolve server-side: it "
+            "serves a page that only a browser can follow. Open the album in a "
+            "browser and use the long address it lands on, the one of the form "
+            "https://photos.google.com/share/<id>?key=<key>"
+        )
+    return (
+        "no photos found on the album page — either the album is not shared "
+        "with 'anyone with the link', or Google changed the page and this "
+        "needs revisiting"
+    )
 
 
 def _name_for(url: str) -> str:
