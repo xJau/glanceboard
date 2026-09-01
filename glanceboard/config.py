@@ -150,6 +150,11 @@ class Settings:
     request_timeout: int
     max_events: int
     art_fraction: float
+    gemini_api_key: str | None
+    photo_dir: Path
+    style_prompt: str | None
+    illustration_enabled: bool
+    illustration_model: str
     rotate: int
     allow_no_token: bool
     tzinfo: ZoneInfo = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
@@ -161,6 +166,23 @@ class Settings:
     @property
     def state_path(self) -> Path:
         return self.output_dir / "state.json"
+
+    @property
+    def photo_state_path(self) -> Path:
+        return self.output_dir / "photo_state.json"
+
+    @property
+    def illustration_cache(self) -> Path:
+        return self.output_dir / "illustrations"
+
+    @property
+    def illustration_ready(self) -> bool:
+        """Whether an illustration can even be attempted.
+
+        Missing a key or a photo directory is a configuration state, not a
+        failure: the board renders exactly as it did in phase 1.
+        """
+        return bool(self.illustration_enabled and self.gemini_api_key)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -194,6 +216,11 @@ class Settings:
             request_timeout=_env_int("GB_REQUEST_TIMEOUT", 20),
             max_events=_env_int("GB_MAX_EVENTS", 12),
             art_fraction=_env_fraction("GB_ART_FRACTION", 0.34),
+            gemini_api_key=_env("GB_GEMINI_API_KEY"),
+            photo_dir=Path(_env("GB_PHOTO_DIR", str(output_dir / "photos"))).expanduser(),
+            style_prompt=_env("GB_STYLE_PROMPT"),
+            illustration_enabled=_env_bool("GB_ILLUSTRATION", True),
+            illustration_model=_env("GB_ILLUSTRATION_MODEL", "gemini-2.5-flash-image"),
             rotate=_env_rotation("GB_ROTATE", 90),
             allow_no_token=_env_bool("GB_ALLOW_NO_TOKEN", False),
             tzinfo=tz,

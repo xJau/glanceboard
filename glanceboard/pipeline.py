@@ -21,6 +21,7 @@ until a new one has been written in full.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -29,6 +30,7 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 
+from . import __version__
 from .config import Settings
 from .models import Board
 from .render import render_board
@@ -138,12 +140,56 @@ def build_board(
     )
 
 
+def illustration_for(settings: Settings, day: date):
+    """The day's illustration, and the key identifying it.
+
+    Returns (image, key), or (None, None) when illustration is switched off,
+    unconfigured, out of photos, or the model would not answer. None of those
+    is an error here: the board renders without a picture, exactly as it did
+    before there was one.
+    """
+    if not settings.illustration_ready:
+        return None, None
+
+    from . import illustration as illustration_module
+    from . import photos
+
+    try:
+        photo = photos.photo_for_day(settings.photo_dir, day, settings.photo_state_path)
+    except photos.NoPhotosError as exc:
+        log.info("No illustration: %s", _brief(exc))
+        return None, None
+
+    key = illustration_module.cache_key(
+        photo,
+        illustration_module.build_prompt(settings.style_prompt),
+        settings.illustration_model,
+        __version__,
+    )
+
+    image, ok = _with_retries(
+        "Illustration",
+        lambda: illustration_module.illustrate(
+            photo,
+            api_key=settings.gemini_api_key,
+            cache_dir=settings.illustration_cache,
+            model=settings.illustration_model,
+            style_prompt=settings.style_prompt,
+            version=__version__,
+        ),
+    )
+    if not ok:
+        return None, None
+    return image, key
+
+
 def render_to_file(
     board: Board,
     settings: Settings,
     path: Path | None = None,
     debug_regions: bool = False,
     rotate: int | None = None,
+    illustration=None,
 ) -> Path:
     """Render and write the PNG atomically, so a reader never sees half a file."""
     image = render_board(
@@ -153,6 +199,7 @@ def render_to_file(
         font_dir=settings.font_dir,
         max_events=settings.max_events,
         art_fraction=settings.art_fraction,
+        illustration=illustration,
         debug_regions=debug_regions,
     )
     turns = settings.rotate if rotate is None else rotate
@@ -168,7 +215,16 @@ def render_to_file(
 def generate(settings: Settings, day: date | None = None, force: bool = False) -> dict:
     """Build, render and record state. Returns the new state dictionary."""
     board = build_board(settings, day=day)
+    illustration, illustration_key = illustration_for(settings, board.day)
+
+    # The picture is part of what the device is looking at, so it belongs in
+    # the hash. Without it, an illustration that failed at five and arrived at
+    # noon would never reach a device that had already drawn the day.
     content_hash = board.content_hash()
+    if illustration_key:
+        content_hash = hashlib.sha256(
+            f"{content_hash}:{illustration_key}".encode("utf-8")
+        ).hexdigest()[:16]
     previous = load_state(settings)
 
     unchanged = (
@@ -183,7 +239,7 @@ def generate(settings: Settings, day: date | None = None, force: bool = False) -
         _write_state(settings, state)
         return state
 
-    render_to_file(board, settings)
+    render_to_file(board, settings, illustration=illustration)
     state = {
         "hash": content_hash,
         "day": board.day.isoformat(),
@@ -192,6 +248,7 @@ def generate(settings: Settings, day: date | None = None, force: bool = False) -
         "events": len(board.events),
         "calendar_ok": board.calendar_ok,
         "weather_ok": board.weather_ok,
+        "illustration": bool(illustration_key),
         "width": settings.width,
         "height": settings.height,
     }

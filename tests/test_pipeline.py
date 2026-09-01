@@ -237,3 +237,75 @@ def test_the_calendar_is_retried_too(settings, monkeypatch, sample_ics):
     assert len(attempts) == 2
     assert board.calendar_ok is True
     assert len(board.events) == 6
+
+
+# ─── Illustration ───────────────────────────────────────────────
+
+def test_without_a_key_there_is_simply_no_illustration(settings):
+    """Not configured is a state, not a failure: the board is what it was."""
+    assert pipeline.illustration_for(settings, SAMPLE_DAY) == (None, None)
+
+
+def test_an_empty_photo_library_is_not_an_error(settings, monkeypatch):
+    monkeypatch.setenv("GB_GEMINI_API_KEY", "k")
+    settings = type(settings).from_env()
+    assert pipeline.illustration_for(settings, SAMPLE_DAY) == (None, None)
+
+
+def test_a_failing_model_leaves_the_board_intact(settings, monkeypatch, sample_ics):
+    """The picture is the only thing a failure may cost."""
+    from PIL import Image
+
+    monkeypatch.setenv("GB_GEMINI_API_KEY", "k")
+    monkeypatch.setenv("GB_PHOTO_DIR", str(settings.output_dir / "photos"))
+    settings = type(settings).from_env()
+    settings.photo_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (8, 8), "white").save(settings.photo_dir / "a.jpg")
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("the model is down")
+
+    monkeypatch.setattr("glanceboard.illustration.illustrate", explode)
+
+    image, key = pipeline.illustration_for(settings, SAMPLE_DAY)
+    assert (image, key) == (None, None)
+
+    board = build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics)
+    path = render_to_file(board, settings, illustration=image)
+    assert path.exists()
+
+
+def test_the_illustration_is_part_of_the_hash(settings, monkeypatch, sample_ics):
+    """An illustration that failed at five and arrived at noon must reach the
+    device, and only a changed hash makes it redraw."""
+    from PIL import Image
+
+    monkeypatch.setenv("GB_GEMINI_API_KEY", "k")
+    monkeypatch.setenv("GB_PHOTO_DIR", str(settings.output_dir / "photos"))
+    settings = type(settings).from_env()
+    settings.photo_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (8, 8), "white").save(settings.photo_dir / "a.jpg")
+
+    monkeypatch.setattr(
+        pipeline, "build_board",
+        lambda *a, **k: build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics),
+    )
+
+    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (None, None))
+    without = generate(settings, force=True)["hash"]
+
+    picture = Image.new("L", (16, 16), 128)
+    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (picture, "abc123"))
+    with_picture = generate(settings, force=True)["hash"]
+
+    assert with_picture != without
+
+
+def test_the_state_records_whether_the_day_had_a_picture(settings, monkeypatch, sample_ics):
+    monkeypatch.setattr(
+        pipeline, "build_board",
+        lambda *a, **k: build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics),
+    )
+    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (None, None))
+    state = generate(settings, force=True)
+    assert state["illustration"] is False

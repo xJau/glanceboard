@@ -37,8 +37,8 @@ replaces everything else.
 | Display endpoint | Unauthenticated | Token required, checked by the server itself |
 | Removed | dashboard, Firebase functions, Gmail, widgets, characters | |
 
-Phase 1 — what is here — generates no images and calls no models. It is running
-on a Paperwhite 4 as `v0.1.0`.
+Running on a Paperwhite 4. Phase 1 — calendar, weather, the deterministic board
+— shipped as `v0.1.0`; phase 2 adds the illustration described below.
 
 ## The layout
 
@@ -65,12 +65,36 @@ The board is composed at 1448×1072 and rotated a quarter turn on the way out,
 because the Paperwhite panel is physically portrait. `GB_ROTATE` decides which
 way; `--upright` skips it while you are looking at the PNG on a desk.
 
-The illustration panel is reserved now even though nothing draws into it. When
-phase 2 adds an image model, it fills that panel and nothing else: the text
-stays deterministic, so a model can never restate an appointment time
-incorrectly, and a failed generation costs the board its picture rather than its
-content. The deterministic renderer is not a separate fallback path that rots
-unused — it is the same path that runs every day.
+## The illustration
+
+The panel on the right holds a photograph of your own, restyled by an image
+model into a storybook illustration. One photo a day, taken from a local
+directory and rotated through it without repeats, chosen once and remembered —
+the board regenerates three times a day, and neither paying three times nor
+watching the picture change at lunch is what anyone wants. The result is cached
+on disk, so a day costs a single call.
+
+Two properties matter more than the picture:
+
+**The model never sees the calendar.** The request carries a style instruction
+and a photograph. There is no path by which an appointment reaches it, and a
+test asserts as much — which is stricter than filtering a payload, because
+there is no payload to filter.
+
+**A failure costs the picture and nothing else.** No key, no photos, a model
+that will not answer: the panel stays empty and the board ships with its
+appointments and its weather. The deterministic renderer is not a fallback path
+that rots between failures — it is the path that runs every day, with one region
+filled in when the picture arrives.
+
+Set `GB_ILLUSTRATION=0` to switch it off, or `GB_ART_FRACTION=0` to give the
+whole board to the agenda.
+
+To work on the layout without spending anything:
+
+```bash
+.venv/bin/python -m glanceboard render --sample --illustration any.png --upright --out out/board.png
+```
 
 Rows compact before anything is dropped: first the spacing, then the type size,
 and only then does a day too full to fit end with *e altri 2 appuntamenti*.
@@ -197,8 +221,17 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_OUTPUT_DIR` | `./data` | PNG and state. `/data` in the container. |
 | `GB_FONT_DIR` | `./assets/fonts` | |
 | `GB_REQUEST_TIMEOUT` | `20` | Seconds, for both sources. |
+| `GB_GEMINI_API_KEY` | — | Image model key. Secret. Absent means no illustration. |
+| `GB_ILLUSTRATION` | `1` | Switches the picture off without touching anything else. |
+| `GB_ILLUSTRATION_MODEL` | `gemini-2.5-flash-image` | |
+| `GB_PHOTO_DIR` | `./data/photos` | The photo library. |
+| `GB_STYLE_PROMPT` | — | Overrides the built-in style instruction. |
 
 ## Client data
+
+The photographs are sent to the image model, which is the one thing here that
+leaves the house. Nothing else does: the calendar is read locally, and the
+model is given a picture and a style, never a schedule.
 
 The calendar carries client information — addresses, notes, attendee emails.
 `parse_ical` keeps four fields per event (title, start, end, all-day) and

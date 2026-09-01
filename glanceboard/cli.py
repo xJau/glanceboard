@@ -51,6 +51,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="read a saved Open-Meteo response instead of calling the API")
     render.add_argument("--sample", action="store_true",
                         help="use the bundled sample calendar and weather (no network, no config)")
+    render.add_argument("--illustration", type=Path,
+                        help="paste a local image into the illustration panel, "
+                             "without calling the model (for layout work)")
     render.add_argument("--debug-regions", action="store_true",
                         help="outline the layout regions")
     render.add_argument("--upright", action="store_true",
@@ -116,8 +119,16 @@ def _render(settings: Settings, args) -> int:
     board = build_board(
         settings, day=day, ical_bytes=ical_bytes, weather_payload=weather_payload
     )
+
+    illustration = None
+    if args.illustration:
+        from PIL import Image
+
+        with Image.open(args.illustration) as picture:
+            illustration = picture.convert("L")
     target = render_to_file(
         board, settings, path=args.out, debug_regions=args.debug_regions,
+        illustration=illustration,
         rotate=0 if args.upright else None,
     )
 

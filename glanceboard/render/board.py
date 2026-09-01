@@ -50,8 +50,14 @@ def render_board(
     max_events: int = 12,
     art_fraction: float = 0.38,
     debug_regions: bool = False,
+    illustration: Image.Image | None = None,
 ) -> Image.Image:
-    """Render `board` and return a 16-level grayscale image."""
+    """Render `board` and return a 16-level grayscale image.
+
+    `illustration` fills the panel that phase 1 left empty. It is the only part
+    of the board a model touches: everything else is drawn here, so a picture
+    that fails to arrive costs the board its picture and nothing more.
+    """
     layout = Layout(width, height, art_fraction=art_fraction)
     fonts = theme.Fonts(font_dir)
 
@@ -61,6 +67,8 @@ def render_board(
     _draw_frame(draw, layout)
     _draw_banner(draw, layout, fonts, board)
     _draw_agenda(draw, layout, fonts, board, max_events)
+    if illustration is not None:
+        _draw_illustration(image, layout, illustration)
     _draw_weather(draw, layout, fonts, board)
     _draw_footer(draw, layout, fonts, board)
 
@@ -68,6 +76,43 @@ def render_board(
         _draw_debug_regions(draw, layout)
 
     return quantize(image)
+
+
+# ─── Illustration ───────────────────────────────────────────────
+
+def _draw_illustration(canvas: Image.Image, layout: Layout, illustration: Image.Image) -> None:
+    """Fit the picture into the reserved panel, cropping rather than squashing.
+
+    Photographs and panels rarely share an aspect ratio, and a stretched face
+    is worse than a cropped one.
+    """
+    panel = layout.art
+    if panel.width <= 0 or panel.height <= 0:
+        return
+
+    picture = illustration.convert("L")
+    scale = max(panel.width / picture.width, panel.height / picture.height)
+    resized = picture.resize(
+        (max(1, round(picture.width * scale)), max(1, round(picture.height * scale))),
+        Image.LANCZOS,
+    )
+
+    left = (resized.width - panel.width) // 2
+    top = (resized.height - panel.height) // 2
+    cropped = resized.crop((left, top, left + panel.width, top + panel.height))
+
+    # The picture becomes a card like the others. Square corners next to two
+    # rounded ones read as an unfinished page rather than a deliberate one.
+    radius = layout.plate_radius
+    mask = Image.new("L", (panel.width, panel.height), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, panel.width - 1, panel.height - 1), radius=radius, fill=255
+    )
+    canvas.paste(cropped, (panel.left, panel.top), mask)
+
+    ImageDraw.Draw(canvas).rounded_rectangle(
+        panel.as_tuple(), radius=radius, outline=theme.INK, width=layout.plate_stroke
+    )
 
 
 # ─── Frame ──────────────────────────────────────────────────────
