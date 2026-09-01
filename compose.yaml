@@ -16,11 +16,14 @@ services:
       # To pull the current board out:
       #   docker compose cp glanceboard:/data/board.png ./board.png
       - board-data:/data
-      # The photo library, read-only: the container only ever reads from here,
-      # and everything it writes — the rotation, the illustration cache — lives
-      # in /data. Mounting it read-only says exactly that, and means a bug
-      # cannot touch the originals.
-      - ./data/photos:/photos:ro
+      # The photo library. Writable, because the album sync fills it; the
+      # rotation and the illustration cache still live in /data.
+      #
+      # Both the container and you need to write here, and neither needs the
+      # directory opened to everyone. Owner is the container's user, group is
+      # yours:
+      #   sudo chown 10001:1000 data/photos && sudo chmod 775 data/photos
+      - ./data/photos:/photos
     networks:
       - edge
     # Deliberately no `ports:` mapping. The board is reached through Caddy on

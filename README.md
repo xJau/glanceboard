@@ -96,6 +96,15 @@ and a photograph. There is no path by which an appointment reaches it, and a
 test asserts as much — which is stricter than filtering a payload, because
 there is no payload to filter.
 
+**The library is separate from where the photos came from.** A public Google
+Photos album can top it up before each render, but reading a share page is not
+a documented interface — Google removed the read-only Library API scopes in
+March 2025, shared-album endpoints answer `403`, and the Picker API that
+replaced them needs a person to choose photos every time. So the sync only ever
+*adds files to a directory*, and everything downstream reads that directory. The
+day Google changes the page, the sync says so in the log and the board carries
+on with the photographs already on disk.
+
 **A failure costs the picture and nothing else.** No key, no photos, a model
 that will not answer: the panel stays empty and the board ships with its
 appointments and its weather. The deterministic renderer is not a fallback path
@@ -240,6 +249,9 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_ILLUSTRATION` | `1` | Switches the picture off without touching anything else. |
 | `GB_ILLUSTRATION_MODEL` | `gemini-2.5-flash-image` | |
 | `GB_PHOTO_DIR` | `./data/photos` | The photo library. |
+| `GB_PHOTO_ALBUM_URL` | — | A public Google Photos album to top it up from. |
+| `GB_PHOTO_SYNC` | `1` | Stops the sync without forgetting the album. |
+| `GB_PHOTO_LIMIT` | `60` | How many photos to keep from the album. |
 | `GB_STYLE_PROMPT` | — | Overrides the built-in style instruction. |
 
 ## Client data

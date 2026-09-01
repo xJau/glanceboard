@@ -156,6 +156,9 @@ class Settings:
     style_prompt: str | None
     illustration_enabled: bool
     illustration_model: str
+    photo_album_url: str | None
+    photo_sync: bool
+    photo_limit: int
     rotate: int
     allow_no_token: bool
     tzinfo: ZoneInfo = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
@@ -223,6 +226,9 @@ class Settings:
             style_prompt=_env("GB_STYLE_PROMPT"),
             illustration_enabled=_env_bool("GB_ILLUSTRATION", True),
             illustration_model=_env("GB_ILLUSTRATION_MODEL", "gemini-2.5-flash-image"),
+            photo_album_url=_env("GB_PHOTO_ALBUM_URL"),
+            photo_sync=_env_bool("GB_PHOTO_SYNC", True),
+            photo_limit=_env_int("GB_PHOTO_LIMIT", 60),
             rotate=_env_rotation("GB_ROTATE", 90),
             allow_no_token=_env_bool("GB_ALLOW_NO_TOKEN", False),
             tzinfo=tz,

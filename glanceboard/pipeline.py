@@ -140,6 +140,24 @@ def build_board(
     )
 
 
+def _sync_album(settings: Settings) -> None:
+    """Top the library up from the album, if one is configured.
+
+    Never raises. An album that cannot be read is a log line: the photographs
+    already on disk are still there, and the day still gets a picture.
+    """
+    if not (settings.photo_sync and settings.photo_album_url):
+        return
+
+    from . import album
+
+    try:
+        album.sync(settings.photo_album_url, settings.photo_dir,
+                   limit=settings.photo_limit, timeout=settings.request_timeout)
+    except Exception as exc:
+        log.warning("Album sync skipped: %s", _brief(exc))
+
+
 def illustration_for(settings: Settings, day: date):
     """The day's illustration, and the key identifying it.
 
@@ -153,6 +171,8 @@ def illustration_for(settings: Settings, day: date):
 
     from . import illustration as illustration_module
     from . import photos
+
+    _sync_album(settings)
 
     try:
         photo = photos.photo_for_day(settings.photo_dir, day, settings.photo_state_path)
