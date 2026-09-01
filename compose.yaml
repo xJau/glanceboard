@@ -4,6 +4,10 @@ services:
     image: glanceboard-kindle:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Tied to the mount above rather than left to .env, so the two cannot
+      # disagree.
+      GB_PHOTO_DIR: /photos
     volumes:
       # Rendered PNG and state. A named volume rather than a bind mount: the
       # container runs as an unprivileged user, and a bind-mounted host
@@ -12,6 +16,11 @@ services:
       # To pull the current board out:
       #   docker compose cp glanceboard:/data/board.png ./board.png
       - board-data:/data
+      # The photo library, read-only: the container only ever reads from here,
+      # and everything it writes — the rotation, the illustration cache — lives
+      # in /data. Mounting it read-only says exactly that, and means a bug
+      # cannot touch the originals.
+      - ./data/photos:/photos:ro
     networks:
       - edge
     # Deliberately no `ports:` mapping. The board is reached through Caddy on

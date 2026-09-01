@@ -257,3 +257,30 @@ def test_different_weights_are_different_faces():
     regular = Fonts(FONT_DIR).get(40, 400)
     bold = Fonts(FONT_DIR).get(40, 700)
     assert regular is not bold
+
+
+def test_the_illustration_is_stretched_to_use_the_panel_range():
+    """A model's mid-greys are fine on a screen and mud on sixteen levels."""
+    flat = Image.new("L", (200, 150), 128)
+    for x in range(200):
+        for y in range(150):
+            flat.putpixel((x, y), 120 + (x % 16))  # a narrow band of greys
+
+    image = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR, illustration=flat)
+    layout = Layout(1448, 1072)
+    panel = image.crop(layout.art.inset(layout.plate_stroke + 2).as_tuple())
+    levels = levels_used(panel)
+
+    assert min(levels) <= 34, "the darks never arrived"
+    assert max(levels) >= 221, "the lights never arrived"
+
+
+def test_the_illustration_stays_inside_its_panel():
+    """Nothing of the picture may spill onto the agenda or the weather card."""
+    picture = Image.new("L", (400, 100), 0)  # solid black, the worst case
+    image = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR, illustration=picture)
+    layout = Layout(1448, 1072)
+
+    strip = image.crop((layout.art.left, layout.art.bottom + 4,
+                        layout.art.right, layout.weather.top - 1))
+    assert levels_used(strip) == {PAPER}, "the picture leaked below its panel"

@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from ..models import Board, Event
 from . import icons, theme
@@ -90,7 +90,11 @@ def _draw_illustration(canvas: Image.Image, layout: Layout, illustration: Image.
     if panel.width <= 0 or panel.height <= 0:
         return
 
-    picture = illustration.convert("L")
+    # Stretch the tonal range before anything else. A model's idea of "black
+    # ink on cream" lands in the middle greys, which is fine on a screen and
+    # mud on a panel with sixteen levels and no backlight. The cutoff ignores a
+    # little at each end so one stray highlight cannot anchor the whole scale.
+    picture = ImageOps.autocontrast(illustration.convert("L"), cutoff=2)
     scale = max(panel.width / picture.width, panel.height / picture.height)
     resized = picture.resize(
         (max(1, round(picture.width * scale)), max(1, round(picture.height * scale))),
