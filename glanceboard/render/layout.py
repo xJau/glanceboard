@@ -108,7 +108,10 @@ class Layout:
 
         # Right column: the illustration panel above, weather in the corner
         # below it — the position it holds in the original.
-        weather_height = round(0.24 * height)
+        # The weather is a glance, not a panel: a smaller card leaves the
+        # illustration the room it deserves. The block inside it shrinks its
+        # icon to fit whatever height is left, so this stays a free choice.
+        weather_height = round(0.185 * height)
         self.weather = Rect(
             self.agenda.right + gutter,
             self.content.bottom - weather_height,
@@ -151,12 +154,12 @@ class Layout:
         self.size_time = round(0.040 * short_side)
         self.size_title = round(0.040 * short_side)
         self.size_note = round(0.034 * short_side)
-        self.size_temp = round(0.082 * short_side)
-        self.size_condition = round(0.034 * short_side)
-        self.size_range = round(0.030 * short_side)
+        self.size_temp = round(0.070 * short_side)
+        self.size_condition = round(0.030 * short_side)
+        self.size_range = round(0.026 * short_side)
         self.size_footer = round(0.026 * short_side)
 
-        self.icon_size = round(0.130 * short_side)
+        self.icon_size = round(0.105 * short_side)
 
     @property
     def agenda_text(self) -> Rect:
