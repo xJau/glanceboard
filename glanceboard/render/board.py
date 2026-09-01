@@ -170,7 +170,7 @@ def _draw_banner(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
     come out ragged — the curve reads perfectly well from the shape alone.
     """
     banner = layout.banner
-    outline = _banner_outline(banner, layout.banner_notch, layout.banner_sag)
+    outline = _banner_outline(banner, layout.banner_notch, layout.banner_bow)
 
     draw.polygon(outline, fill=theme.PLATE)
     _polygon_outline(draw, outline, layout.plate_stroke)
@@ -178,20 +178,23 @@ def _draw_banner(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
     text = theme.banner_date(board.day)
     inner_width = banner.width - 2 * layout.banner_notch - layout.plate_padding
     font = _fitted_font(draw, text, fonts, layout.size_banner, theme.HEAVY, inner_width)
-    # The middle of the band is where the sag has taken it.
-    draw.text((banner.centre_x, (banner.top + banner.bottom) // 2 + layout.banner_sag),
+    # The middle of the band is wherever the bow has taken it.
+    draw.text((banner.centre_x, (banner.top + banner.bottom) // 2 + layout.banner_bow),
               text, font=font, fill=theme.INK, anchor="mm")
 
 
-def _banner_outline(banner: Rect, notch: int, sag: int, steps: int = 48) -> list[tuple[int, int]]:
+def _banner_outline(banner: Rect, notch: int, bow: int, steps: int = 48) -> list[tuple[int, int]]:
     """The bowed band, as a closed polygon: top edge, right chevron, bottom
-    edge back, left chevron."""
+    edge back, left chevron.
+
+    `bow` is signed: negative arches the middle upwards, positive lets it sag.
+    """
     left, right = banner.left, banner.right
     span = max(1, right - left)
 
     def dip(x: int) -> float:
-        # A half sine: nothing at the ends, the full sag in the middle.
-        return sag * math.sin(math.pi * (x - left) / span)
+        # A half sine: nothing at the ends, the full bow in the middle.
+        return bow * math.sin(math.pi * (x - left) / span)
 
     top = [(x, round(banner.top + dip(x)))
            for x in (left + round(i * span / steps) for i in range(steps + 1))]

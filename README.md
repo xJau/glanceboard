@@ -55,13 +55,13 @@ there are no cards.
 │     11:30 │ Call Bianchi SRL · · · washed pale, filling  │
 │     14:00 │ Sopralluogo cantiere · the whole page · · ·  │
 │     18:30 │ Palestra · · · · · · · · · · · · · · · · · · │
-│  · · · · · · · ╲___ Martedì 1 settembre ___╱ · · · · · · │
+│  · · · · · · · ╲‾‾‾ Martedì 1 settembre ‾‾‾╱ · · · · · · │
 │  aggiornato alle 05:00 · · · · · · · · · · · · · · · · · │
 └──────────────────────────────────────────────────────────┘
 ```
 
-The ribbon hangs along the bottom, bowed downwards the way a banner hangs from
-its two ends. The band curves and the type stays level: setting the letters
+The ribbon hangs along the bottom, arched upwards in the middle the way a
+bunting gathers between its pins. The band curves and the type stays level: setting the letters
 along the arc would mean rotating each one, and rotated glyphs on a sixteen-grey
 panel come out ragged.
 

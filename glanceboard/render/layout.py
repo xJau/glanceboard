@@ -106,14 +106,15 @@ class Layout:
         # by its ends. Narrow enough to leave the corner for the caption.
         banner_height = round(0.098 * height)
         banner_width = round(0.42 * width)
-        # The sag adds to the band's height, so the rectangle is lifted by it:
-        # otherwise the middle of the ribbon dips into the frame.
-        self.banner_sag = round(banner_height * 0.30)
+        # How far the middle of the band leaves the line of its ends. Negative
+        # arches it upwards, which is the way a bunting hangs when it is pinned
+        # at both ends and gathered in the middle.
+        self.banner_bow = -round(banner_height * 0.30)
         self.banner = Rect(
             self.content.centre_x - banner_width // 2,
-            self.content.bottom - banner_height - self.banner_sag,
+            self.content.bottom - banner_height,
             self.content.centre_x + banner_width // 2,
-            self.content.bottom - self.banner_sag,
+            self.content.bottom,
         )
         self.banner_notch = round(banner_height * 0.30)
 
@@ -122,7 +123,9 @@ class Layout:
             self.content.left,
             self.content.top,
             self.content.left + round(0.60 * self.content.width),
-            self.banner.top - round(0.030 * height),
+            # The bow takes the middle of the ribbon past its own rectangle;
+            # the list stops clear of wherever it reaches.
+            self.banner.top - round(0.030 * height) - abs(self.banner_bow),
         )
         self.agenda_rule_gap = round(0.020 * short_side)
         # A timetable: hours right-aligned in their own column, a rule, then
