@@ -77,6 +77,16 @@ than as a box. No wash strong enough to guarantee contrast over *any*
 photograph would leave a picture worth having, which is why there is a veil at
 all.
 
+**The text moves to the quieter side.** Which side the list stands on depends
+on the picture: type over an empty sky reads, type over somebody's face does
+not. Two things decide it, and the cheap one is the reliable one. Counting ink
+in each half of the drawing is exact and cannot be wrong about what is there. A
+model knows something the count does not — that a hatched sky is busy but
+unimportant, while a face may be sparse and matter enormously — so its reading
+of the photograph wins when it has one, and the count decides when it does not.
+A near-tie leaves the layout where it was: a board that swaps sides every
+morning on a hair's difference is harder to read than one that stays put.
+
 The day is set as a timetable: hours right-aligned in their own column, a rule,
 then the entries. The eye finds *what time* and *what* in two fixed places
 instead of reading along a sentence. All-day entries get a dash, the way a
@@ -257,6 +267,8 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_PHOTO_ALBUM_URL` | — | A public Google Photos album to top it up from. |
 | `GB_PHOTO_SYNC` | `1` | Stops the sync without forgetting the album. |
 | `GB_PHOTO_LIMIT` | `60` | How many photos to keep from the album. |
+| `GB_ADAPTIVE_LAYOUT` | `1` | Put the text on whichever side the picture leaves quiet. |
+| `GB_SUBJECT_MODEL` | `gemini-2.5-flash` | Asked where the subjects are. |
 | `GB_STYLE_PROMPT` | — | Overrides the built-in style instruction. |
 
 ## Client data

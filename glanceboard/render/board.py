@@ -54,6 +54,7 @@ def render_board(
     debug_regions: bool = False,
     illustration: Image.Image | None = None,
     art_wash: float = 0.62,
+    text_side: str = "left",
 ) -> Image.Image:
     """Render `board` and return a 16-level grayscale image.
 
@@ -61,7 +62,7 @@ def render_board(
     of the board a model touches: everything else is drawn here, so a picture
     that fails to arrive costs the board its picture and nothing more.
     """
-    layout = Layout(width, height, art_fraction=art_fraction)
+    layout = Layout(width, height, art_fraction=art_fraction, text_side=text_side)
     fonts = theme.Fonts(font_dir)
 
     image = Image.new("L", (width, height), theme.PAPER)

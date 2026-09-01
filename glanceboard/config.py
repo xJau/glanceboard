@@ -159,6 +159,8 @@ class Settings:
     photo_album_url: str | None
     photo_sync: bool
     photo_limit: int
+    subject_model: str
+    adaptive_layout: bool
     rotate: int
     allow_no_token: bool
     tzinfo: ZoneInfo = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
@@ -229,6 +231,8 @@ class Settings:
             photo_album_url=_env("GB_PHOTO_ALBUM_URL"),
             photo_sync=_env_bool("GB_PHOTO_SYNC", True),
             photo_limit=_env_int("GB_PHOTO_LIMIT", 60),
+            subject_model=_env("GB_SUBJECT_MODEL", "gemini-2.5-flash"),
+            adaptive_layout=_env_bool("GB_ADAPTIVE_LAYOUT", True),
             rotate=_env_rotation("GB_ROTATE", 90),
             allow_no_token=_env_bool("GB_ALLOW_NO_TOKEN", False),
             tzinfo=tz,

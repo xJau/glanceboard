@@ -110,7 +110,8 @@ def test_the_pipeline_survives_an_album_that_will_not_load(settings, monkeypatch
 
     monkeypatch.setattr(album, "sync", explode)
     # No photos either, so this returns nothing — but it must not raise.
-    assert pipeline.illustration_for(settings, __import__("datetime").date(2026, 9, 1)) == (None, None)
+    assert pipeline.illustration_for(
+        settings, __import__("datetime").date(2026, 9, 1)) == (None, None, None)
 
 
 class _Response:

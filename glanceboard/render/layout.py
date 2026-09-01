@@ -56,15 +56,20 @@ class Rect:
 class Layout:
     """Resolution-independent metrics for one canvas size."""
 
-    def __init__(self, width: int, height: int, art_fraction: float = 0.34):
+    def __init__(self, width: int, height: int, art_fraction: float = 0.34,
+                 text_side: str = "left"):
         if width < 200 or height < 200:
             raise ValueError(f"Canvas too small to lay out: {width}x{height}")
         if not 0.0 <= art_fraction <= 0.6:
             raise ValueError(f"art_fraction must be between 0 and 0.6, got {art_fraction}")
 
+        if text_side not in ("left", "right"):
+            raise ValueError(f"text_side must be left or right, got {text_side!r}")
+
         self.width = width
         self.height = height
         self.art_fraction = art_fraction
+        self.text_side = text_side
 
         short_side = min(width, height)
 
@@ -92,13 +97,17 @@ class Layout:
             height - self.frame_outer - self.frame_gap,
         )
 
-        # The weather goes to the top corner, small: a glance, checked once.
+        # The list takes one side and the weather the opposite top corner, so
+        # the two never crowd each other whichever way round they are.
         weather_height = round(0.130 * height)
         weather_width = round(0.26 * width)
+        agenda_width = round(0.60 * self.content.width)
+        on_left = text_side == "left"
+
         self.weather = Rect(
-            self.content.right - weather_width,
+            self.content.left if on_left is False else self.content.right - weather_width,
             self.content.top,
-            self.content.right,
+            self.content.left + weather_width if on_left is False else self.content.right,
             self.content.top + weather_height,
         )
 
@@ -121,11 +130,11 @@ class Layout:
         )
         self.banner_notch = round(banner_height * 0.30)
 
-        # The agenda takes the left column, from the top down to the ribbon.
+        # The agenda takes one column, from the top down to the ribbon.
         self.agenda = Rect(
-            self.content.left,
+            self.content.left if on_left else self.content.right - agenda_width,
             self.content.top,
-            self.content.left + round(0.60 * self.content.width),
+            self.content.left + agenda_width if on_left else self.content.right,
             # The bow takes the middle of the ribbon past its own rectangle;
             # the list stops clear of wherever it reaches.
             self.banner.top - round(0.030 * height) - abs(self.banner_bow),

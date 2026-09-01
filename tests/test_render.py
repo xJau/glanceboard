@@ -276,3 +276,26 @@ def test_the_illustration_is_stretched_to_use_the_panel_range():
     assert max(levels) >= 221, "the lights never arrived"
 
 
+
+
+def test_the_layout_mirrors():
+    """The list takes one side and the weather the opposite top corner, so the
+    two never crowd each other whichever way round they are."""
+    left = Layout(1448, 1072, text_side="left")
+    right = Layout(1448, 1072, text_side="right")
+
+    assert left.agenda.left < left.weather.left
+    assert right.agenda.left > right.weather.left
+    assert left.agenda.width == right.agenda.width
+
+
+def test_both_sides_render():
+    board = make_board([timed(9, "Consulenza")], WEATHER)
+    for side in ("left", "right"):
+        image = render_board(board, 1448, 1072, FONT_DIR, text_side=side)
+        assert image.size == (1448, 1072)
+
+
+def test_an_unknown_side_is_rejected():
+    with pytest.raises(ValueError):
+        Layout(1448, 1072, text_side="middle")

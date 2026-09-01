@@ -243,13 +243,13 @@ def test_the_calendar_is_retried_too(settings, monkeypatch, sample_ics):
 
 def test_without_a_key_there_is_simply_no_illustration(settings):
     """Not configured is a state, not a failure: the board is what it was."""
-    assert pipeline.illustration_for(settings, SAMPLE_DAY) == (None, None)
+    assert pipeline.illustration_for(settings, SAMPLE_DAY) == (None, None, None)
 
 
 def test_an_empty_photo_library_is_not_an_error(settings, monkeypatch):
     monkeypatch.setenv("GB_GEMINI_API_KEY", "k")
     settings = type(settings).from_env()
-    assert pipeline.illustration_for(settings, SAMPLE_DAY) == (None, None)
+    assert pipeline.illustration_for(settings, SAMPLE_DAY) == (None, None, None)
 
 
 def test_a_failing_model_leaves_the_board_intact(settings, monkeypatch, sample_ics):
@@ -267,8 +267,8 @@ def test_a_failing_model_leaves_the_board_intact(settings, monkeypatch, sample_i
 
     monkeypatch.setattr("glanceboard.illustration.illustrate", explode)
 
-    image, key = pipeline.illustration_for(settings, SAMPLE_DAY)
-    assert (image, key) == (None, None)
+    image, key, photo = pipeline.illustration_for(settings, SAMPLE_DAY)
+    assert (image, key, photo) == (None, None, None)
 
     board = build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics)
     path = render_to_file(board, settings, illustration=image)
@@ -291,11 +291,11 @@ def test_the_illustration_is_part_of_the_hash(settings, monkeypatch, sample_ics)
         lambda *a, **k: build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics),
     )
 
-    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (None, None))
+    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (None, None, None))
     without = generate(settings, force=True)["hash"]
 
     picture = Image.new("L", (16, 16), 128)
-    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (picture, "abc123"))
+    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (picture, "abc123", None))
     with_picture = generate(settings, force=True)["hash"]
 
     assert with_picture != without
@@ -306,6 +306,38 @@ def test_the_state_records_whether_the_day_had_a_picture(settings, monkeypatch, 
         pipeline, "build_board",
         lambda *a, **k: build_board(settings, day=SAMPLE_DAY, ical_bytes=sample_ics),
     )
-    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (None, None))
+    monkeypatch.setattr(pipeline, "illustration_for", lambda *a, **k: (None, None, None))
     state = generate(settings, force=True)
     assert state["illustration"] is False
+
+
+def test_the_side_is_remembered_between_renders(settings, monkeypatch):
+    """Without a picture there is nothing to measure, so the layout stays put."""
+    from glanceboard.pipeline import _write_state, text_side_for
+
+    _write_state(settings, {"text_side": "right"})
+    assert text_side_for(settings, None) == "right"
+
+
+def test_the_ink_decides_when_the_model_says_nothing(settings, monkeypatch):
+    from PIL import Image, ImageDraw
+
+    from glanceboard.pipeline import text_side_for
+
+    busy_left = Image.new("L", (200, 100), 255)
+    ImageDraw.Draw(busy_left).rectangle((0, 0, 100, 100), fill=0)
+    assert text_side_for(settings, busy_left) == "right"
+
+
+def test_switching_it_off_freezes_the_layout(settings, monkeypatch):
+    from PIL import Image, ImageDraw
+
+    from glanceboard.pipeline import _write_state, text_side_for
+
+    monkeypatch.setenv("GB_ADAPTIVE_LAYOUT", "0")
+    settings = type(settings).from_env()
+    _write_state(settings, {"text_side": "left"})
+
+    busy_left = Image.new("L", (200, 100), 255)
+    ImageDraw.Draw(busy_left).rectangle((0, 0, 100, 100), fill=0)
+    assert text_side_for(settings, busy_left) == "left"

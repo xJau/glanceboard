@@ -122,7 +122,64 @@ def illustrate(
     return image
 
 
-def _request(photo: Path, prompt: str, api_key: str, model: str, timeout: int) -> Image.Image:
+SUBJECT_PROMPT = (
+    "Look at this photograph. Which half of the frame do the main subjects — "
+    "people, animals, or the object the picture is about — mostly occupy? "
+    "Answer with exactly one word: left, right, or centre. Nothing else."
+)
+
+
+def subject_side(
+    photo: Path,
+    api_key: str,
+    cache_dir: Path,
+    model: str = "gemini-2.5-flash",
+    timeout: int = 30,
+) -> str | None:
+    """Which half of the photograph its subjects occupy, per the model.
+
+    Returns "left", "right", or None — including for "centre", which is not an
+    answer the layout can act on. Cached beside the illustration: this is asked
+    once per photograph, not once per render.
+
+    Never raises. A missing opinion is not a failure; the ink count decides.
+    """
+    marker = Path(cache_dir) / f"{_photo_digest(photo)}.side"
+    if marker.exists():
+        cached = marker.read_text(encoding="utf-8").strip()
+        return cached or None
+
+    try:
+        answer = _ask(photo, SUBJECT_PROMPT, api_key, model, timeout).strip().lower()
+    except Exception as exc:
+        log.info("No subject reading for %s: %s", photo.name, exc)
+        return None
+
+    side = next((word for word in ("left", "right") if word in answer), None)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        marker.write_text(side or "", encoding="utf-8")
+    except OSError:
+        pass
+    log.info("Subject of %s reads as %s", photo.name, side or "centre or unclear")
+    return side
+
+
+def _photo_digest(photo: Path) -> str:
+    return hashlib.sha256(Path(photo).read_bytes()).hexdigest()[:16]
+
+
+def _ask(photo: Path, prompt: str, api_key: str, model: str, timeout: int) -> str:
+    """One question about a picture, answered in text."""
+    body = _post(photo, prompt, api_key, model, timeout)
+    for candidate in body.get("candidates") or []:
+        for part in (candidate.get("content") or {}).get("parts") or []:
+            if part.get("text"):
+                return part["text"]
+    raise IllustrationError("the model answered with no text")
+
+
+def _post(photo: Path, prompt: str, api_key: str, model: str, timeout: int) -> dict:
     mime = mimetypes.guess_type(str(photo))[0] or "image/jpeg"
     payload = {
         "contents": [
@@ -139,7 +196,6 @@ def _request(photo: Path, prompt: str, api_key: str, model: str, timeout: int) -
             }
         ]
     }
-
     try:
         response = requests.post(
             f"{API_ROOT}/{model}:generateContent",
@@ -148,12 +204,15 @@ def _request(photo: Path, prompt: str, api_key: str, model: str, timeout: int) -
             timeout=timeout,
         )
         response.raise_for_status()
-        body = response.json()
+        return response.json()
     except requests.RequestException as exc:
-        raise IllustrationError(f"the image model could not be reached: {exc}") from exc
+        raise IllustrationError(f"the model could not be reached: {exc}") from exc
     except ValueError as exc:
-        raise IllustrationError(f"the image model returned unreadable JSON: {exc}") from exc
+        raise IllustrationError(f"the model returned unreadable JSON: {exc}") from exc
 
+
+def _request(photo: Path, prompt: str, api_key: str, model: str, timeout: int) -> Image.Image:
+    body = _post(photo, prompt, api_key, model, timeout)
     data = _first_image(body)
     if data is None:
         raise IllustrationError("the response carried no image")

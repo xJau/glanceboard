@@ -161,13 +161,17 @@ def _sync_album(settings: Settings) -> None:
 def illustration_for(settings: Settings, day: date):
     """The day's illustration, and the key identifying it.
 
-    Returns (image, key), or (None, None) when illustration is switched off,
-    unconfigured, out of photos, or the model would not answer. None of those
-    is an error here: the board renders without a picture, exactly as it did
-    before there was one.
+    Returns (image, key, photo). All three are None when illustration is
+    switched off, unconfigured, out of photos, or the model would not answer —
+    none of which is an error here: the board renders without a picture,
+    exactly as it did before there was one.
+
+    The photograph comes back with the drawing because the layout may want to
+    ask a question about it, and passing it along beats stashing it somewhere
+    for the caller to find.
     """
     if not settings.illustration_ready:
-        return None, None
+        return None, None, None
 
     from . import illustration as illustration_module
     from . import photos
@@ -178,7 +182,7 @@ def illustration_for(settings: Settings, day: date):
         photo = photos.photo_for_day(settings.photo_dir, day, settings.photo_state_path)
     except photos.NoPhotosError as exc:
         log.info("No illustration: %s", _brief(exc))
-        return None, None
+        return None, None, None
 
     key = illustration_module.cache_key(
         photo,
@@ -199,8 +203,33 @@ def illustration_for(settings: Settings, day: date):
         ),
     )
     if not ok:
-        return None, None
-    return image, key
+        return None, None, None
+    return image, key, photo
+
+
+def text_side_for(settings: Settings, illustration, photo: Path | None = None) -> str:
+    """Which side of the page the list should stand on.
+
+    The model's reading of the photograph wins when there is one; the ink in
+    the drawing decides when there is not. Without a picture at all the layout
+    stays where it was.
+    """
+    from . import composition
+
+    previous = load_state(settings).get("text_side", composition.LEFT)
+    if illustration is None or not settings.adaptive_layout:
+        return previous
+
+    subject = None
+    if photo is not None and settings.gemini_api_key:
+        from . import illustration as illustration_module
+
+        subject = illustration_module.subject_side(
+            photo, settings.gemini_api_key, settings.illustration_cache,
+            model=settings.subject_model, timeout=settings.request_timeout,
+        )
+
+    return composition.side_away_from(subject, illustration, previous)
 
 
 def render_to_file(
@@ -210,6 +239,7 @@ def render_to_file(
     debug_regions: bool = False,
     rotate: int | None = None,
     illustration=None,
+    text_side: str = "left",
 ) -> Path:
     """Render and write the PNG atomically, so a reader never sees half a file."""
     image = render_board(
@@ -220,6 +250,7 @@ def render_to_file(
         max_events=settings.max_events,
         art_fraction=settings.art_fraction,
         art_wash=settings.art_wash,
+        text_side=text_side,
         illustration=illustration,
         debug_regions=debug_regions,
     )
@@ -236,7 +267,7 @@ def render_to_file(
 def generate(settings: Settings, day: date | None = None, force: bool = False) -> dict:
     """Build, render and record state. Returns the new state dictionary."""
     board = build_board(settings, day=day)
-    illustration, illustration_key = illustration_for(settings, board.day)
+    illustration, illustration_key, photo = illustration_for(settings, board.day)
 
     # The picture is part of what the device is looking at, so it belongs in
     # the hash. Without it, an illustration that failed at five and arrived at
@@ -260,7 +291,8 @@ def generate(settings: Settings, day: date | None = None, force: bool = False) -
         _write_state(settings, state)
         return state
 
-    render_to_file(board, settings, illustration=illustration)
+    text_side = text_side_for(settings, illustration, photo)
+    render_to_file(board, settings, illustration=illustration, text_side=text_side)
     state = {
         "hash": content_hash,
         "day": board.day.isoformat(),
@@ -270,6 +302,7 @@ def generate(settings: Settings, day: date | None = None, force: bool = False) -
         "calendar_ok": board.calendar_ok,
         "weather_ok": board.weather_ok,
         "illustration": bool(illustration_key),
+        "text_side": text_side,
         "width": settings.width,
         "height": settings.height,
     }

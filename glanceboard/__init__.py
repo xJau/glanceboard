@@ -5,4 +5,4 @@
 #: The change-detection hash includes it, so a device that has already drawn
 #: today's board still fetches the redesigned one. Without it a layout change
 #: reaches the Kindle only when the calendar or the weather happens to move.
-__version__ = "0.4.2"
+__version__ = "0.5.0"
