@@ -49,16 +49,21 @@ there are no cards.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  · · · · · ·  ╱‾ Martedì 1 settembre ‾╲  · · · · · · · · │
-│  IN PROGRAMMA OGGI · · · · · · · · · · · · · · · · · · · │
-│        —  │ Studio chiuso il pomeriggio · · · · · · · ·  │
+│  IN PROGRAMMA OGGI · · · · · · · · · · · · · ·  ☁ 30°    │
+│        —  │ Studio chiuso il pomeriggio · · ·   Coperto  │
 │     09:00 │ Consulenza Rossi · · · the illustration, · · │
 │     11:30 │ Call Bianchi SRL · · · washed pale, filling  │
 │     14:00 │ Sopralluogo cantiere · the whole page · · ·  │
-│     18:30 │ Palestra · · · · · · · · · · · ·   ☁ 30°  ·  │
-│  aggiornato alle 05:00 · · · · · · · · · · ·   Coperto   │
+│     18:30 │ Palestra · · · · · · · · · · · · · · · · · · │
+│  · · · · · · · ╲___ Martedì 1 settembre ___╱ · · · · · · │
+│  aggiornato alle 05:00 · · · · · · · · · · · · · · · · · │
 └──────────────────────────────────────────────────────────┘
 ```
+
+The ribbon hangs along the bottom, bowed downwards the way a banner hangs from
+its two ends. The band curves and the type stays level: setting the letters
+along the arc would mean rotating each one, and rotated glyphs on a sixteen-grey
+panel come out ragged.
 
 The board is composed at 1448×1072 and rotated a quarter turn on the way out,
 because the Paperwhite panel is physically portrait. `GB_ROTATE` decides which

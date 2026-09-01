@@ -226,18 +226,24 @@ def test_the_picture_is_washed_pale_enough_to_read_type_over():
     image = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR, illustration=dark)
     layout = Layout(1448, 1072)
 
-    # A corner of the page with no type on it: whatever the picture was, what
-    # lands there has to stay light.
-    corner = image.crop((layout.art.left + 20, layout.art.top + 20,
-                         layout.art.left + 120, layout.art.top + 120))
-    assert min(levels_used(corner)) >= 153, "the background is too dark for black type"
+    # A patch the veil does not reach — right of the agenda, below the weather,
+    # above the caption. Whatever the picture was, what lands there has to stay
+    # light enough that type could be set on it.
+    patch = image.crop(_bare_patch(layout))
+    assert min(levels_used(patch)) >= 153, "the background is too dark for black type"
+
+
+def _bare_patch(layout: Layout) -> tuple[int, int, int, int]:
+    """A hundred pixels of page carrying neither text nor veil."""
+    left = layout.agenda.right + 120
+    top = layout.weather.bottom + 120
+    return (left, top, left + 100, top + 100)
 
 
 def test_a_lighter_wash_keeps_more_of_the_picture():
     dark = Image.new("L", (400, 300), 0)
     layout = Layout(1448, 1072)
-    box = (layout.art.left + 20, layout.art.top + 20,
-           layout.art.left + 120, layout.art.top + 120)
+    box = _bare_patch(layout)
 
     pale = render_board(make_board([], WEATHER), 1448, 1072, FONT_DIR,
                         illustration=dark, art_wash=0.85).crop(box)

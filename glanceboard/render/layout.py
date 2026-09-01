@@ -92,42 +92,43 @@ class Layout:
             height - self.frame_outer - self.frame_gap,
         )
 
-        # A smaller ribbon: the date is a label, not the subject.
-        banner_height = round(0.082 * height)
+        # The weather goes to the top corner, small: a glance, checked once.
+        weather_height = round(0.130 * height)
+        weather_width = round(0.26 * width)
+        self.weather = Rect(
+            self.content.right - weather_width,
+            self.content.top,
+            self.content.right,
+            self.content.top + weather_height,
+        )
+
+        # The ribbon sits along the bottom, bowed downwards like a banner hung
+        # by its ends. Narrow enough to leave the corner for the caption.
+        banner_height = round(0.098 * height)
         banner_width = round(0.42 * width)
+        # The sag adds to the band's height, so the rectangle is lifted by it:
+        # otherwise the middle of the ribbon dips into the frame.
+        self.banner_sag = round(banner_height * 0.30)
         self.banner = Rect(
             self.content.centre_x - banner_width // 2,
-            self.content.top,
+            self.content.bottom - banner_height - self.banner_sag,
             self.content.centre_x + banner_width // 2,
-            self.content.top + banner_height,
+            self.content.bottom - self.banner_sag,
         )
-        self.banner_notch = round(banner_height * 0.32)
+        self.banner_notch = round(banner_height * 0.30)
 
-        columns_top = self.banner.bottom + round(0.052 * height)
-
-        # The agenda is a column of entries on the left, with no card under it.
-        # A rule down the left edge holds the list together instead.
+        # The agenda takes the left column, from the top down to the ribbon.
         self.agenda = Rect(
             self.content.left,
-            columns_top,
+            self.content.top,
             self.content.left + round(0.60 * self.content.width),
-            self.content.bottom,
+            self.banner.top - round(0.030 * height),
         )
         self.agenda_rule_gap = round(0.020 * short_side)
         # A timetable: hours right-aligned in their own column, a rule, then
         # the entries. The eye finds "what time" and "what" in two fixed places
         # instead of reading along a sentence.
         self.time_column = round(0.155 * self.agenda.width)
-
-        # The weather floats in the bottom corner: an icon, a number, a word.
-        weather_height = round(0.155 * height)
-        weather_width = round(0.30 * width)
-        self.weather = Rect(
-            self.content.right - weather_width,
-            self.content.bottom - weather_height,
-            self.content.right,
-            self.content.bottom,
-        )
 
         # The timestamp is a caption in the margin, not a card.
         self.footer = Rect(

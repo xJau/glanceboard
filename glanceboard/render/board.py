@@ -21,6 +21,7 @@ generation costs the board its picture rather than its content.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -131,7 +132,7 @@ def _veil(canvas: Image.Image, layout: Layout) -> None:
     veil = Image.new("L", canvas.size, 0)
     painter = ImageDraw.Draw(veil)
     pad = layout.plate_padding
-    for rect in (layout.agenda, layout.weather):
+    for rect in (layout.agenda, layout.weather, layout.footer):
         painter.rounded_rectangle(
             (rect.left - pad, rect.top - pad, rect.right + pad, rect.bottom + pad),
             radius=layout.corner_radius, fill=110,
@@ -159,43 +160,49 @@ def _draw_frame(draw: ImageDraw.ImageDraw, layout: Layout) -> None:
 
 # ─── Banner ─────────────────────────────────────────────────────
 
+
 def _draw_banner(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
                  board: Board) -> None:
-    """A ribbon with notched ends carrying the date."""
-    banner = layout.banner
-    notch = layout.banner_notch
-    stroke = layout.plate_stroke
+    """A ribbon bowed downwards, the way a banner hangs from its two ends.
 
-    draw.polygon(
-        [
-            (banner.left, banner.top),
-            (banner.right, banner.top),
-            (banner.right - notch, banner.centre_x * 0 + (banner.top + banner.bottom) // 2),
-            (banner.right, banner.bottom),
-            (banner.left, banner.bottom),
-            (banner.left + notch, (banner.top + banner.bottom) // 2),
-        ],
-        fill=theme.PLATE, outline=theme.INK,
-    )
-    # Redraw the outline thicker: polygon() only strokes a single pixel.
-    _polygon_outline(
-        draw,
-        [
-            (banner.left, banner.top),
-            (banner.right, banner.top),
-            (banner.right - notch, (banner.top + banner.bottom) // 2),
-            (banner.right, banner.bottom),
-            (banner.left, banner.bottom),
-            (banner.left + notch, (banner.top + banner.bottom) // 2),
-        ],
-        stroke,
-    )
+    The band curves; the type stays level. Setting the letters along the arc
+    would mean rotating each one, and rotated glyphs on a sixteen-grey panel
+    come out ragged — the curve reads perfectly well from the shape alone.
+    """
+    banner = layout.banner
+    outline = _banner_outline(banner, layout.banner_notch, layout.banner_sag)
+
+    draw.polygon(outline, fill=theme.PLATE)
+    _polygon_outline(draw, outline, layout.plate_stroke)
 
     text = theme.banner_date(board.day)
-    inner_width = banner.width - 2 * notch - layout.plate_padding
+    inner_width = banner.width - 2 * layout.banner_notch - layout.plate_padding
     font = _fitted_font(draw, text, fonts, layout.size_banner, theme.HEAVY, inner_width)
-    draw.text((banner.centre_x, (banner.top + banner.bottom) // 2),
+    # The middle of the band is where the sag has taken it.
+    draw.text((banner.centre_x, (banner.top + banner.bottom) // 2 + layout.banner_sag),
               text, font=font, fill=theme.INK, anchor="mm")
+
+
+def _banner_outline(banner: Rect, notch: int, sag: int, steps: int = 48) -> list[tuple[int, int]]:
+    """The bowed band, as a closed polygon: top edge, right chevron, bottom
+    edge back, left chevron."""
+    left, right = banner.left, banner.right
+    span = max(1, right - left)
+
+    def dip(x: int) -> float:
+        # A half sine: nothing at the ends, the full sag in the middle.
+        return sag * math.sin(math.pi * (x - left) / span)
+
+    top = [(x, round(banner.top + dip(x)))
+           for x in (left + round(i * span / steps) for i in range(steps + 1))]
+    bottom = [(x, round(banner.bottom + dip(x))) for x, _ in reversed(top)]
+
+    right_mid = (round(right - notch),
+                 round((banner.top + banner.bottom) / 2 + dip(right)))
+    left_mid = (round(left + notch),
+                round((banner.top + banner.bottom) / 2 + dip(left)))
+
+    return top + [right_mid] + bottom + [left_mid]
 
 
 def _polygon_outline(draw: ImageDraw.ImageDraw, points: list[tuple[int, int]],
