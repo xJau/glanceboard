@@ -178,9 +178,19 @@ def _draw_banner(draw: ImageDraw.ImageDraw, layout: Layout, fonts: theme.Fonts,
     text = theme.banner_date(board.day)
     inner_width = banner.width - 2 * layout.banner_notch - layout.plate_padding
     font = _fitted_font(draw, text, fonts, layout.size_banner, theme.HEAVY, inner_width)
-    # The middle of the band is wherever the bow has taken it.
-    draw.text((banner.centre_x, (banner.top + banner.bottom) // 2 + layout.banner_bow),
-              text, font=font, fill=theme.INK, anchor="mm")
+    # The middle of the band is wherever the bow has taken it — and the middle
+    # of the text is where its ink is, not where its em box is. "Martedì 1
+    # settembre" has no descenders, so the unused space below the baseline was
+    # dragging the letters up inside the ribbon.
+    middle = (banner.top + banner.bottom) // 2 + layout.banner_bow
+    _draw_ink_centred(draw, banner.centre_x, middle, text, font)
+
+
+def _draw_ink_centred(draw: ImageDraw.ImageDraw, x: int, y: int, text: str, font) -> None:
+    """Draw `text` so that the middle of its inked area lands on `y`."""
+    box = draw.textbbox((0, 0), text, font=font, anchor="lt")
+    ink_middle = (box[1] + box[3]) / 2
+    draw.text((x, y - ink_middle), text, font=font, fill=theme.INK, anchor="mt")
 
 
 def _banner_outline(banner: Rect, notch: int, bow: int, steps: int = 48) -> list[tuple[int, int]]:

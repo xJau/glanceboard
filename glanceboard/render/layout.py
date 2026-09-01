@@ -110,11 +110,14 @@ class Layout:
         # arches it upwards, which is the way a bunting hangs when it is pinned
         # at both ends and gathered in the middle.
         self.banner_bow = -round(banner_height * 0.30)
+        # Dropped below the content line, into the margin the caption shares:
+        # the two are far apart horizontally and the ribbon reads better low.
+        banner_drop = round(0.024 * height)
         self.banner = Rect(
             self.content.centre_x - banner_width // 2,
-            self.content.bottom - banner_height,
+            self.content.bottom - banner_height + banner_drop,
             self.content.centre_x + banner_width // 2,
-            self.content.bottom,
+            self.content.bottom + banner_drop,
         )
         self.banner_notch = round(banner_height * 0.30)
 
