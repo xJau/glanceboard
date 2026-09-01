@@ -64,8 +64,12 @@ def main() -> int:
     _replace(env_file, KEY, url)
     print(f"  {KEY} updated ({len(url)} characters); previous .env kept as .env.bak (0600)")
 
-    subprocess.run(["docker", "compose", "up", "-d"], cwd=root, check=False)
-    print("Restarted. The board regenerates on startup.")
+    # --force-recreate, because `up -d` on an unchanged image can answer
+    # "Container Running" and leave the process holding the old environment —
+    # the calendar would be changed in the file and not in the board.
+    subprocess.run(["docker", "compose", "up", "-d", "--force-recreate"],
+                   cwd=root, check=False)
+    print("Recreated. The board regenerates on startup.")
     return 0
 
 
