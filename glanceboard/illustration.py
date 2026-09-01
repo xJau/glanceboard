@@ -42,18 +42,23 @@ API_ROOT = "https://generativelanguage.googleapis.com/v1beta/models"
 
 DEFAULT_MODEL = "gemini-2.5-flash-image"
 
-#: Written for a 16-grey e-ink panel seen from across a room: shapes read at a
-#: distance, fine gradients do not survive quantization, and the register has to
-#: sit beside a rounded typeface and cream cards without fighting them.
 DEFAULT_STYLE_PROMPT = (
-    "Redraw this photograph as a warm children's storybook illustration. "
-    "Soft ink linework with gentle, flat shading; keep the composition, the "
-    "subjects and their arrangement recognisable. Monochrome — black ink on a "
-    "cream page, no colour. Strong tonal contrast and clean silhouettes, no "
-    "fine texture or subtle gradients, because this is displayed on a low "
-    "contrast greyscale e-ink screen. No text, no lettering, no borders, "
-    "no frame."
+    "Redraw this photograph as a pen-and-ink line drawing for a children's "
+    "storybook. Confident black outlines describe every shape; shadows are "
+    "cross-hatching and stippling, never grey fill. Leave large areas of the "
+    "cream paper completely untouched — the drawing should read as ink on an "
+    "empty page, not as a tonal picture. Keep the composition and the subjects "
+    "recognisable. Monochrome, no colour, no photographic shading, no soft "
+    "gradients. No text, no lettering, no border, no frame."
 )
+"""The style, written for a panel with sixteen greys and text drawn on top.
+
+An earlier version asked for "soft ink linework with gentle, flat shading" and
+got exactly that: tonal masses that turned to mud once washed back far enough
+for black type to read over them. Insisting on outlines, hatching and untouched
+paper produces a drawing that is mostly empty — which is what lets the wash be
+gentle and the picture still be visible.
+"""
 
 
 class IllustrationError(RuntimeError):

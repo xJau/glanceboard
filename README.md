@@ -66,7 +66,7 @@ way; `--upright` skips it while you are looking at the PNG on a desk.
 
 Legibility over a photograph is the whole problem. Two things solve it, and
 both are adjustable. The picture is washed towards the paper — `GB_ART_WASH`,
-at `0.78` by default — and the two regions that carry type are lifted a little
+at `0.62` by default — and the two regions that carry type are lifted a little
 further under a blurred veil, so the edge reads as light falling off rather
 than as a box. No wash strong enough to guarantee contrast over *any*
 photograph would leave a picture worth having, which is why there is a veil at
@@ -226,7 +226,7 @@ as `GB_X_FILE` pointing at a file, for Docker secrets.
 | `GB_TEMP_UNIT` | `celsius` | `celsius` or `fahrenheit`. |
 | `GB_WIDTH`, `GB_HEIGHT` | `1448`, `1072` | Landscape canvas. PW5/PW6: `1648`, `1236`. |
 | `GB_ROTATE` | `90` | Quarter turns applied to the PNG. `0`, `90`, `180`, `270`. |
-| `GB_ART_WASH` | `0.78` | How far the picture is washed towards the paper. |
+| `GB_ART_WASH` | `0.62` | How far the picture is washed towards the paper. |
 | `GB_MAX_EVENTS` | `12` | Upper bound before the `+N altri` note. |
 | `GB_SLOTS` | `5,12,18` | Hours at which the board is regenerated. |
 | `GB_DISPLAY_TOKEN` | — | Required to serve. At least 24 characters. |

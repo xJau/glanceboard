@@ -217,7 +217,7 @@ class Settings:
             request_timeout=_env_int("GB_REQUEST_TIMEOUT", 20),
             max_events=_env_int("GB_MAX_EVENTS", 12),
             art_fraction=_env_fraction("GB_ART_FRACTION", 0.34),
-            art_wash=_env_fraction("GB_ART_WASH", 0.78, ceiling=0.95),
+            art_wash=_env_fraction("GB_ART_WASH", 0.62, ceiling=0.95),
             gemini_api_key=_env("GB_GEMINI_API_KEY"),
             photo_dir=Path(_env("GB_PHOTO_DIR", str(output_dir / "photos"))).expanduser(),
             style_prompt=_env("GB_STYLE_PROMPT"),

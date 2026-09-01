@@ -52,7 +52,7 @@ def render_board(
     art_fraction: float = 0.38,
     debug_regions: bool = False,
     illustration: Image.Image | None = None,
-    art_wash: float = 0.72,
+    art_wash: float = 0.62,
 ) -> Image.Image:
     """Render `board` and return a 16-level grayscale image.
 
@@ -85,7 +85,7 @@ def render_board(
 
 
 def _draw_illustration(canvas: Image.Image, layout: Layout, illustration: Image.Image,
-                       wash: float = 0.72) -> None:
+                       wash: float = 0.62) -> None:
     """Lay the picture across the whole page, pale enough to read type over.
 
     Two steps, and both matter. The tonal range is stretched first, because a
